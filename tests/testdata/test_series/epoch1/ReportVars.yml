@@ -1,0 +1,14 @@
+Common:
+  compilation_date: 2026-04-13 16:03
+  qa4sm_version: 3.2.1
+  qa4sm_url: https://qa4sm.eu/
+  interval_days: 91
+  interval_from: '2020-03-01'
+  interval_to: '2020-05-31'
+  count_runs: 1
+  extents_equal: true
+  common_area:
+  - 19.095097036262146
+  - -156.3971863811718
+  - 20.4067416381494
+  - -154.67868591465736

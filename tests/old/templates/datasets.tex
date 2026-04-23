@@ -1,0 +1,30 @@
+\section{Datasets}
+
+The following chapter contains an overview of the datasets and filters applied in all runs in this report.
+
+\noindent The common period for all datasets is from \detokenize{$<ReportVars['Common']['interval_from']>$} to \detokenize{$<ReportVars['Common']['interval_to']>$}
+
+\subsection{Candidate - \detokenize{$<Run1ContentVars['ConfigVars']['DS1']['name']>$} (\detokenize{$<Run1ContentVars['ConfigVars']['DS1']['version']>$}) Soil Moisture}
+
+\noindent The following list contains all data filters applied to \detokenize{$<Run1ContentVars['ConfigVars']['DS1']['name']>$} before any metrics are computed.
+ For a detailed description and threshold values for each filter, see the validation run online.
+
+\begin{itemize}
+\detokenize{$<'.'.join([f"\\item {d['description']}" for d in Run1ContentVars['ConfigVars']['DS1']['basic_filters_description']])>$}
+\end{itemize}
+
+\subsection{Reference 1 - \detokenize{$<Run2ContentVars['ConfigVars']['DS0']['name']>$} (\detokenize{$<Run2ContentVars['ConfigVars']['DS0']['version']>$}) Surface SM}
+
+\noindent When \detokenize{$<Run2ContentVars['ConfigVars']['DS0']['name']>$} is used in a validation run, the following filters are applied before validation metrics are computed:
+
+\begin{itemize}
+\detokenize{$<'.'.join([f"\\item {d['description']}" for d in Run2ContentVars['ConfigVars']['DS0']['basic_filters_description']])>$}
+\end{itemize}
+
+\subsection{Reference 2 - \detokenize{$<Run1ContentVars['ConfigVars']['DS0']['name']>$} (\detokenize{$<Run1ContentVars['ConfigVars']['DS0']['version']>$}) Soil Moisture}
+
+\noindent In all validation runs with \detokenize{$<Run1ContentVars['ConfigVars']['DS0']['name']>$}, the following filters are applied to the dataset:
+
+\begin{itemize}
+\detokenize{$<'.'.join([f"\\item {d['description']}" for d in Run1ContentVars['ConfigVars']['DS0']['basic_filters_description']])>$}
+\end{itemize}

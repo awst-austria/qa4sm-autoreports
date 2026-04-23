@@ -1,0 +1,13 @@
+Metric;Mean;Median;IQ range
+N. Obs.;3.4;0.0;0
+Pearson's r;0.49;0.49;0
+Spearman's rho;0.5;0.5;0
+Root-mean-square deviation  in m³/m³;0.12;0.12;0
+Bias  in m³/m³;-0.1;-0.1;0
+Unbiased root-mean-square deviation  in m³/m³;0.0549;0.0549;0
+Mean square error  in (m³/m³)²;0.0138;0.0138;0
+Mean square error correlation  in (m³/m³)²;0.00203;0.00203;0
+Mean square error bias  in (m³/m³)²;0.0108;0.0108;0
+Mean square error variance  in (m³/m³)²;0.000984;0.000984;0
+Residual sum of squares  in (m³/m³)²;1.18;1.18;0
+Validation errors;6.72;7.0;0

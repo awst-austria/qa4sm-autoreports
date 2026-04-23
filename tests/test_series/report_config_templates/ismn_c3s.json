@@ -1,0 +1,77 @@
+{
+  "name_tag": "test",
+  "interval_from": "2020-06-01",
+  "interval_to": "2020-08-31",
+  "temporal_matching": 12,
+  "anomalies_method": "none",
+  "anomalies_from": null,
+  "anomalies_to": null,
+  "min_lat": 19.095097036262146,
+  "min_lon": -156.3971863811718,
+  "max_lat": 20.4067416381494,
+  "max_lon": -154.67868591465736,
+  "scaling_method": "none",
+  "metrics": [
+    {
+      "id": "tcol",
+      "value": false
+    },
+    {
+      "id": "bootstrap_tcol_cis",
+      "value": false
+    },
+    {
+      "id": "stability_metrics",
+      "value": false
+    }
+  ],
+  "intra_annual_metrics": {
+    "intra_annual_metrics": false,
+    "intra_annual_type": "",
+    "intra_annual_overlap": null
+  },
+  "dataset_configs": [
+    {
+      "dataset_id": 1,
+      "version_id": 70,
+      "variable_id": 1,
+      "is_spatial_reference": false,
+      "is_temporal_reference": true,
+      "is_scaling_reference": false,
+      "basic_filters": [
+        1
+      ],
+      "parametrised_filters": []
+    },
+    {
+      "dataset_id": 4,
+      "version_id": 69,
+      "variable_id": 4,
+      "is_spatial_reference": true,
+      "is_temporal_reference": false,
+      "is_scaling_reference": false,
+      "basic_filters": [
+        1,
+        2
+      ],
+      "parametrised_filters": [
+        {
+          "id": 24,
+          "parameters": "0.00,0.10"
+        },
+        {
+          "id": 18,
+          "parameters": "AMMA-CATCH,DAHRA,TAHMO,SD_DEM,CHINA,CTP_SMTMN,HiWATER_EHWSN,HSC_SEOLMACHEON,IIT_KANPUR,KHOREZM,MAQU,MONGOLIA,MySMNet,RUSWET-AGRO,RUSWET-GRASS,RUSWET-VALDAI,SKKU,SW-WHU,KIHS_CMC,KIHS_SMC,VDS,NAQU,NGARI,SMN-SDR,SONTE-China,WIT-Network,AACES,OZNET,SASMAS,BIEBRZA_S-1,CALABRIA,CAMPANIA,FMI,FR_Aqui,GROW,GTK,HOBE,HYDROL-NET_PERUGIA,IMA_CAN1,METEROBS,MOL-RAO,ORACLE,REMEDHUS,RSMN,SMOSMANIA,SWEX_POLAND,TERENO,UDC_SMOS,UMBRIA,UMSUOL,VAS,WEGENERNET,WSMN,HOAL,IPE,COSMOS-UK,LABFLUX,NVE,Ru_CFR,STEMS,TWENTE,XMS-CAT,ARM,AWDN,BNZ-LTER,FLUXNET-AMERIFLUX,ICN,IOWA,PBO_H2O,RISMA,SCAN,SNOTEL,SOILSCAPE,USCRN,USDA-ARS,TxSON,LAB-net,PTSMN"
+        }
+      ]
+    }
+  ],
+  "val_type": "temporal",
+  "settings_changes": {
+    "filters": [],
+    "anomalies": false,
+    "scaling": false,
+    "variables": [],
+    "versions": []
+  }
+}

@@ -1,0 +1,99 @@
+% This template is used for all validation runs in the report (which can use different input datasets!)
+\section{Validation run \detokenize{$<ContentVars['report_run_index']>$}}
+
+Fig. \ref{fig:coverage\detokenize{$<ContentVars['report_run_index']>$}} shows the extent of validation run  \detokenize{$<ContentVars['report_run_index']>$}.
+All statistics and plots in this chapter are based on data from the shown bounding box.
+
+% A graphic created during the validation run data collection showing the
+% covered area is included.
+\begin{figure}[ht!]
+    \centering
+    \includegraphics[width=.6\textwidth]{"extent.png"}
+    \caption{Area covered by all validation runs.}
+    \label{fig:coverage\detokenize{$<ContentVars['report_run_index']>$}}
+\end{figure}
+
+\subsection{Validation Settings}
+
+The following validation settings were used in the comparison against \detokenize{$<ContentVars['ConfigVars']['DS0']['name']>$}.
+For a full list of used settings, see the validation run results page linked in Table \ref{tab:val_run_list}.
+% Print a list of selected validation settings, information taken from the
+% collected content variables (validation config section).
+% This also shows some simple if-else logic in the f-string like placeholders.
+\begin{itemize}
+    \item Spatial reference: \textbf{\detokenize{$<ContentVars['ConfigVars']['spatial_reference']>$}}
+    \item Temporal reference: \textbf{\detokenize{$<ContentVars['ConfigVars']['temporal_reference']>$}}
+    \item Scaling reference: \textbf{\detokenize{$<ContentVars['ConfigVars']['scaling_reference']>$}}
+    \item Temporal matching window was set to \textbf{\detokenize{$<ContentVars['ConfigVars']['temporal_matching']>$} hours}.
+    \item Validation metrics \detokenize{$<'\\textbf{are}' if ContentVars['ConfigVars']['anomalies_method']!='none' else '\\textbf{are not}'>$} based on anomalies.
+    \item Triple collocation analysis \detokenize{$<'\\textbf{was}' if ContentVars['ConfigVars']['metrics'][0]['value'] else '\\textbf{was not}'>$} performed.
+\end{itemize}
+
+\subsection{SMOS L2 Filters}
+
+\noindent The following data filters were applied to SMOS L2:
+
+% Creating a list of variable length is a bit tricky but also works using
+% f-string like logic. Here we combine the list of "normal" and "parameterised"
+% filters used in the validation run.
+\begin{enumerate}
+\detokenize{$<'.'.join([f"\\item {d['description']}" for d in ContentVars['ConfigVars']['DS1']['basic_filters_description']])>$}
+\detokenize{$<'.'.join([f"\\item {d['description']} to {d['parameters']}" for d in ContentVars['ConfigVars']['DS1']['parametrised_filters_description']])>$}
+\end{enumerate}
+
+% The first dataset is always SMOS L2, so we can hard-code it, but the second
+% one changes between runs.
+\subsection{\detokenize{$<ContentVars['ConfigVars']['DS0']['name']>$} Filters}
+
+\noindent The following data filters were applied to \detokenize{$<ContentVars['ConfigVars']['DS0']['name']>$}:
+
+\begin{enumerate}
+\detokenize{$<'.'.join([f"\\item {d['description']}" for d in ContentVars['ConfigVars']['DS0']['basic_filters_description']])>$}
+\detokenize{$<'.'.join([f"\\item {d['description']} to {d['parameters']}" for d in ContentVars['ConfigVars']['DS0']['parametrised_filters_description']])>$}
+\end{enumerate}
+
+
+\subsection{Results}
+
+% Here we do some on-the-fly computation with numpy
+\noindent For \detokenize{$<np.mean(ContentVars['NetcdfVars']['percent_ok']):.2f>$} \% of all tested locations ($<ContentVars['NetcdfVars']['n_gpis']>$) an error was found.
+
+\begin{table}[htb!]
+    \centering
+    \caption{Summary statistics of SMOS L2 against \detokenize{$<ContentVars['ConfigVars']['DS0']['name']>$}. More metrics can be found \href{\detokenize{$<ContentVars['NetcdfMetaVars']['url']>$}}{online}.}
+    \begin{tabular}{lllll}
+    \textbf{Metric} & \textbf{\#Obs.} & \textbf{Pearson's R} & \textbf{Bias}  & \textbf{ubRMSD}  \\
+    \textbf{Mean}   & \detokenize{$<ContentVars['SummaryVars']['MEAN_N. OBS.']>$}   & \detokenize{$<ContentVars['SummaryVars']['MEAN_PEARSON'S R']>$}     & \detokenize{$<ContentVars['SummaryVars']['MEAN_BIAS']>$}   & \detokenize{$<ContentVars['SummaryVars']['MEAN_UNBIASED ROOT-MEAN-SQUARE DEVIATION']>$}   \\
+    \textbf{Median}   & \detokenize{$<ContentVars['SummaryVars']['MEDIAN_N. OBS.']>$}   & \detokenize{$<ContentVars['SummaryVars']['MEDIAN_PEARSON'S R']>$}     & \detokenize{$<ContentVars['SummaryVars']['MEDIAN_BIAS']>$}   & \detokenize{$<ContentVars['SummaryVars']['MEDIAN_UNBIASED ROOT-MEAN-SQUARE DEVIATION']>$}   \\
+    \textbf{IQ-Range}   & \detokenize{$<ContentVars['SummaryVars']['IQ RANGE_N. OBS.']>$}   & \detokenize{$<ContentVars['SummaryVars']['IQ RANGE_PEARSON'S R']>$}     & \detokenize{$<ContentVars['SummaryVars']['IQ RANGE_BIAS']>$}   & \detokenize{$<ContentVars['SummaryVars']['IQ RANGE_UNBIASED ROOT-MEAN-SQUARE DEVIATION']>$}   \\
+    \end{tabular}
+\label{tab:sumstats}
+\end{table}
+
+\begin{figure}[ht!]
+    \centering
+    \includegraphics[width=0.6\textwidth]{./qa4sm_graphics/bulk_overview_status.png}
+    \caption{Status Map / Errors raised}
+    \label{fig:statusmap}
+\end{figure}
+
+\begin{figure}[ht!]
+    \centering
+    \includegraphics[width=0.6\textwidth]{./qa4sm_graphics/bulk_overview_n_obs.png}
+    \caption{Available Observations}
+    \label{fig:nobsmap}
+\end{figure}
+
+\begin{figure}[ht!]
+    \centering
+    \includegraphics[width=0.3\textwidth]{./qa4sm_graphics/bulk_boxplot_R.png}
+    \caption{Box plot of Pearson's R}
+    \label{fig:rbox}
+\end{figure}
+
+\begin{figure}[ht!]
+    \centering
+    \includegraphics[width=0.6\textwidth]{./qa4sm_graphics/bulk_overview_0-SMOS_L2_and_1-\detokenize{$<ContentVars['NetcdfMetaVars']['val_dc_dataset1']>$}_R.png}
+    \caption{Map of Pearson's R}
+    \label{fig:rmap}
+\end{figure}

@@ -1,0 +1,13 @@
+Metric,Mean,Median,IQ range,Dataset
+# observations,3.44,0,0,All datasets
+Pearson's r ,0.44,0.44,0,1-C3S_combined (v202505)
+Spearman's ρ ,0.45,0.45,0,1-C3S_combined (v202505)
+Root-mean-square deviation  in m³/m³,0.15,0.15,0,1-C3S_combined (v202505)
+Bias  in m³/m³,-0.14,-0.14,0,1-C3S_combined (v202505)
+Unbiased root-mean-square deviation  in m³/m³,5.33e-02,5.33e-02,0,1-C3S_combined (v202505)
+Mean square error  in (m³/m³)²,2.14e-02,2.14e-02,0,1-C3S_combined (v202505)
+Mean square error correlation  in (m³/m³)²,1.94e-03,1.94e-03,0,1-C3S_combined (v202505)
+Mean square error bias  in (m³/m³)²,1.85e-02,1.85e-02,0,1-C3S_combined (v202505)
+Mean square error variance  in (m³/m³)²,8.97e-04,8.97e-04,0,1-C3S_combined (v202505)
+Residual sum of squares  in (m³/m³)²,1.84,1.84,0,1-C3S_combined (v202505)
+Validation errors ,6.72,7.,0,1-C3S_combined (v202505)
