@@ -1,0 +1,91 @@
+\documentclass[11pt]{article}
+
+% Packages
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{csvsimple}
+\usepackage{wrapfig}
+\usepackage[
+    top=2cm,
+    bottom=2cm,
+    left=2.5cm,
+    right=2.5cm,
+    headheight=14pt
+]{geometry}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    filecolor=magenta,
+    urlcolor=blue,
+    citecolor=black,
+}
+\usepackage[authoryear]{natbib}
+\usepackage{lmodern}
+\usepackage{microtype}      % Better text justification and spacing
+\usepackage{import}  % add to preamble
+\usepackage{placeins}
+\usepackage{subcaption}
+\pagestyle{empty}
+
+\newcommand{\platformversion}{\detokenize{$<ReportVars['Common']['qa4sm_version']>$}}
+\newcommand{\reportfreq}{Blabla}
+\newcommand{\timecovered}{\detokenize{$<ReportVars['Common']['interval_days']>$} days (\detokenize{$<ReportVars['Common']['interval_from']>$} to \detokenize{$<ReportVars['Common']['interval_to']>$})}
+\newcommand{\otherreports}{Blabla}
+\newcommand{\website}{\detokenize{$<ReportVars['Common']['qa4sm_url']>$}}
+\newcommand{\contact}{Blabla}
+\newcommand{\manual}{Blabla}
+
+% Document
+\begin{document}
+
+    \begin{center}
+    {\Large{TEST REPORT}} \\
+    \vspace{1mm}
+    {\Large{Date of creation: \detokenize{$<ReportVars['Common']['compilation_date']>$}}}
+    \end{center}
+
+    \vspace{5mm}
+    \hrule
+    \vspace{1mm}
+    \hrule
+
+    \vspace{3mm}
+    \begin{tabular}{ll}
+    Blabla: 	                    & {\contact}  \\
+    QA4SM version:                  & {\platformversion}   \\
+    Time: 	                        & {\timecovered}  \\
+    Website: 	                    & {\website}  \\
+    \end{tabular}
+
+    \vspace{1mm}
+    \hrule
+
+    \section{Test}
+
+    \noindent Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ul
+
+    \noindent Test citation in \citet{hersbach2020} and the paper \citep{hersbach2020}.
+
+    \begin{table}[h]
+    \label{tab:val_run_list}
+    \centering
+    \csvreader[
+        separator=semicolon,
+        tabular=llll,
+        table head=\toprule Run & URL & Name & Completed \\ \midrule,
+        late after last line=\\\bottomrule
+    ]{val_run_list.csv}{}%
+    { \csvcoli & \csvcolii & \csvcoliii & \csvcoliv }
+    \end{table}
+
+    \clearpage
+
+    \include{something.tex}
+    \import{./run1/}{run.tex}
+
+    \bibliographystyle{plainnat}
+    \bibliography{references.bib}
+
+\end{document}

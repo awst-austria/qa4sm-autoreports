@@ -1,7 +1,7 @@
 Common:
-  compilation_date: 2026-04-13 16:03
+  compilation_date: 2026-04-28 10:13
   qa4sm_version: 3.2.1
-  qa4sm_url: https://qa4sm.eu/
+  qa4sm_url: https://test.qa4sm.eu/
   interval_days: 91
   interval_from: '2020-03-01'
   interval_to: '2020-05-31'

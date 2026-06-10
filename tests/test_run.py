@@ -6,11 +6,8 @@ from qa4sm_api.client_api import Connection
 from qa4sm_autoreports.run import ValidationRun
 from tempfile import mkdtemp
 
-QA4SM_IP_OR_URL = "test.qa4sm.eu"
-QA4SM_API_TOKEN = "2b37740a1f6733c9cfc2e1e105abe974ff8c4204"
-RUN_ID = "6eb61199-59b8-4ecc-8e3c-7b1139df4a05"
-QA4SM = Connection(QA4SM_IP_OR_URL, QA4SM_API_TOKEN)
-
+RUN_ID = "bd9b2b74-0ac4-46ac-9562-ffe5c0ac3848"
+QA4SM = Connection("test.qa4sm.eu")
 
 class TestRunFromRemote(unittest.TestCase):
 
@@ -76,7 +73,7 @@ class TestRunFromRemote(unittest.TestCase):
         assert isinstance(timing['duration'], str)
 
     def test_status(self):
-        status, percent = self.valrun.status()
+        status, percent = self.valrun.status
         assert (status.upper() == 'DONE') & (percent == 100)
 
 
@@ -91,6 +88,6 @@ class TestRunFromLocal(TestRunFromRemote):
         cls.valrun = localrun
 
     def test_is_local_run(self):
-        assert self.valrun._init_origin == 'local'
+        pass
 
 

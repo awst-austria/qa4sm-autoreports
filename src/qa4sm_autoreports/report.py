@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: Copyright (c) 2026 TU Wien & AWST
+# SPDX-FileCopyrightText: For a full list of authors, see the AUTHORS file.
+
 import glob
 import warnings
 import pandas as pd
@@ -10,6 +14,7 @@ import numpy as np
 import yaml
 from pathlib import Path
 import subprocess
+from typing import Union
 
 from qa4sm_api.client_api import Connection
 from qa4sm_autoreports.extent import GeographicExtent
@@ -30,6 +35,14 @@ class AutoReportCreator:
     """
     Trigger multiple validation runs, check status, compile PDF.
     """
+    _STATUS_LUT = {
+        0: "Staged",
+        1: "Started",
+        2: "Processed",
+        3: "Collected",
+        4: "Compiled",
+    }
+
     def __init__(self, runs, report_root):
         """
         Parameters
@@ -41,11 +54,22 @@ class AutoReportCreator:
         """
         self.report_root = Path(report_root)
         self.name = str(self.report_root.name)
-        self.runs = np.atleast_1d(runs).tolist()  # dtype: List[ValidationRun, ...]
+        self.runs = self._collect_runs(runs) #np.atleast_1d(runs).tolist()  # dtype: List[ValidationRun, ...]
+
+    def _collect_runs(self, runs) -> dict:
+        _runs = {}
+        for run in runs:
+            name = run.name
+            i = 0
+            while name in _runs.keys():
+                name = run.name + f"({i})"
+                i += 1
+            _runs[name] = run
+        return _runs
 
     @classmethod
     def from_scratch(cls, report_root, templates_path, connection,
-                     force=False):
+                     run_name_long=False, force=False):
         """
         Set up report creator from scratch, i.e. from template configs.
         If report_root already exists, runs will be loaded from files.
@@ -59,6 +83,8 @@ class AutoReportCreator:
             available files).
         connection: Connection
             QA4SM Connection
+        run_name_long: bool, optional
+            Instead of naming runs "runX", name them "run X - <template>" instead.
         force: bool, optional
             Force creating a new report_root from scratch
             If False, an error is thrown if it exists.
@@ -77,21 +103,27 @@ class AutoReportCreator:
         os.makedirs(str(report_root))
 
         templates = glob.glob(str(template_path / '*.json'))
+        if len(templates) == 0:
+            raise FileNotFoundError(f"No templates found in {template_path}")
         runs = []
         for i, template in enumerate(templates, start=1):
-            n = os.path.basename(template).replace('.json', '')
-            name = f"run {i} - {n}"
+            if run_name_long:
+                n = os.path.basename(template).replace('.json', '')
+                name = f"run {i} - {n}"
+            else:
+                name = f"run{i}"
             os.makedirs(str(report_root / name), exist_ok=True)
             instance = connection.session.instance
             shutil.copy(template, str(report_root / name / f"config-{instance}.json"))
             run = ValidationRun.from_template(str(report_root / name),
-                                              connection=connection)
+                                              connection=connection,
+                                              name_tag=name)
             runs.append(run)
 
         return cls(runs, report_root)
 
     @classmethod
-    def from_results(cls, report_root):
+    def from_results(cls, report_root, connection=None):
         """
         Set up report creator from previously created local runs.
 
@@ -99,53 +131,78 @@ class AutoReportCreator:
         ----------
         report_root: str or Path
             Path to the report folder (is created / overwritten)
+        connection: Connection, optional
+            Connection to use for all runs. If None, connections will be
+            created based on the instance in each run's config file.
         """
         report_root = Path(report_root)
 
         run_dirs = glob.glob(str(report_root / 'run*'))
         runs = []
         for local_dir in run_dirs:
-            run = ValidationRun.from_results(local_dir)
+            name_tag = os.path.basename(local_dir)
+            run = ValidationRun.from_results(local_dir, connection=connection,
+                                             name_tag=name_tag)
             runs.append(run)
 
         return cls(runs, report_root)
 
     @property
-    def status(self) -> str:
+    def status(self) -> int:
         """
-        Status between all validation runs
-        - Staged: Local setup created, not triggered online
-        - Started: All runs were triggered
-        - Processed: All runs have finished online
-        - Collected: All results were downloaded locally
-        - Compiled: PDF was created
+        Status between all validation runs, returned as a numerical code in
+        order of progress
+        - 0 - Staged: Local setup created, not triggered online
+        - 1 - Started: All runs were triggered
+        - 2 - Processed: All runs have finished online
+        - 3 - Collected: All results were downloaded locally
+        - 4 - Compiled: PDF was created
         """
-        run_status = [r.status[0] for r in self.runs]
-        status = "Staged" if "unknown" in run_status else "Started"
-
-        try:
-            complete = self.validations_complete()
-        except ValueError:
+        run_status = [r.status[0] for _, r in self.runs.items()]
+        if ("NOT FOUND" in run_status) or (len(run_status) == 0):
+            status = 0
             complete = False
+        else:  # either running or finished
+            status = 1
+            try:
+                complete = self.validations_complete()
+            except ValueError:
+                complete = False
 
         if complete:
-            status = "Processed"
+            status = 2
             if os.path.exists(self.report_root / 'ReportVars.yml'):
-                status = "Collected"
+                status = 3
                 pdfs = glob.glob(str(self.report_root / 'pdf_report' / "*.pdf"))
                 if len(pdfs) > 0:
-                    status = "Compiled"
+                    status = 4
 
         return status
 
-    def __getitem__(self, index):
+    def __len__(self) -> int:
+        return len(self.runs)
+
+    def __getitem__(self, item: Union[int, str]) -> ValidationRun:
         """ Can be used to select one of the loaded validation runs """
-        return self.runs[index]
+        names = list(self.runs.keys())
+        if isinstance(item, int):
+            return self.runs[names[item]]
+        elif isinstance(item, str):
+            if item not in names:
+                raise KeyError(f"The run '{item}' is not part of "
+                               f"the report. "
+                               f"Use one of {list(self.runs.keys())}")
+            return self.runs[item]
+        else:
+            raise ValueError(f"Pass either run index or a "
+                             f"name from {list(self.runs.keys())}.")
 
     def __repr__(self):
         s = ''
-        for i, r in enumerate(self.runs):
-            s += f"Run {i} [{r.status[0]}]: {str(r.name)}\n"
+        i = 0
+        for n, r in self.runs.items():
+            s += f"{i} [{r.status[0]}]: {n}\n"
+            i += 1
         s += f"<AutoReportCreator <--> {self.report_root}>"
         return s
 
@@ -156,8 +213,8 @@ class AutoReportCreator:
 
     def open_datasets(self) -> dict:
         datasets = {}
-        for run in self.runs:
-            datasets[run.name] = run.open_dataset()
+        for name, run in self.runs.items():
+            datasets[name] = run.open_dataset()
         return datasets
 
     def validation_run_table(self, short_url=True):
@@ -180,7 +237,7 @@ class AutoReportCreator:
         """
         columns = ["Validation run", "URL", "Name", "Completed"]
         records = []
-        for i, run in enumerate(self.runs, start=1):
+        for i, run in enumerate(list(self.runs.values()), start=1):
             run.has_remote(raise_error=True)
             url = run.get_results_url()
             ds, vers, _ = run.get_reference('spatial')
@@ -204,6 +261,17 @@ class AutoReportCreator:
 
         return df
 
+    def rollback(self, status=0):
+        """
+        Roll back the report to the selected stage.
+
+        Parameters
+        ----------
+        status: int
+            Target status after rollback.
+        """
+        raise NotImplementedError()
+
     def override_params(self, **kwargs):
         """
         Override parameters in all runs loaded for this report.
@@ -213,7 +281,7 @@ class AutoReportCreator:
         kwargs:
             Kwargs are passed to each run's override_params method.
         """
-        for run in self.runs:
+        for name, run in self.runs.items():
             run.override_params(**kwargs)
 
     def verify_dataset_availability(self) -> bool:
@@ -226,7 +294,7 @@ class AutoReportCreator:
             True if all datasets are available for the requested period,
             False otherwise.
         """
-        for run in self.runs:
+        for name, run in self.runs.items():
             avail = run.verify_period()
             if not avail:
                 return False
@@ -249,7 +317,7 @@ class AutoReportCreator:
             e.g., {'interval_from': "2023-01-01", 'interval_to': "2023-03-31",
                    'min_lat': -17.0, 'max_lon': 150.0, ...}
         """
-        for run in self.runs:  # type: ValidationRun
+        for name, run in self.runs.items():  # type: ValidationRun
             if override is not None:
                 run.override_params(**override)
             run.start()
@@ -264,7 +332,7 @@ class AutoReportCreator:
         all_done : bool
             False if at least one run is not complete yet, else True
         """
-        for run in self.runs:
+        for name, run in self.runs.items():
             run.has_remote(raise_error=True)
             s, p = run.status
             if not ((s == "DONE") and (p == 100)):
@@ -282,11 +350,27 @@ class AutoReportCreator:
             Delay in seconds between API calls to start a run.
         """
         if self.validations_complete():
-            for run in self.runs:
+            for name, run in self.runs.items():
                 run.download_data()
                 time.sleep(delay)
         else:
             self._warn_incomplete()
+
+    def delete(self, remote=True):
+        """
+        Delete all runs in this report.
+
+        Parameters
+        ----------
+        local: bool, optional
+            Delete the remote version of the run
+        remote: bool, optional
+            Delete the local copy of the validation run
+        """
+        for name, run in self.runs.items():
+            run.delete(remote=remote, local=True)
+        if os.path.exists(self.report_root):
+            shutil.rmtree(self.report_root)
 
     def collect_content(self, force_download=False):
         """
@@ -304,7 +388,7 @@ class AutoReportCreator:
             table.to_csv(self.report_root / "val_run_list.csv",
                          sep=';', index=False)
 
-            for i, run in enumerate(self.runs, start=1):
+            for i, run in enumerate(list(self.runs.values()), start=1):
                 # Download all required data from server
                 run.download_data(force_download=force_download)
                 # Make the coverage map plot
@@ -337,7 +421,7 @@ class AutoReportCreator:
                               overwrite=True)
 
 
-            extents = [r.extent for r in self.runs]
+            extents = [r.extent for _, r in self.runs.items()]
             if len(extents) == 1:
                 common_extent = extents[0]
             else:
@@ -354,7 +438,7 @@ class AutoReportCreator:
             report_data = {
                 'compilation_date': datetime.now().strftime("%Y-%m-%d %H:%M"),
                 'qa4sm_version': all_vars.data["NetcdfMetaVars"]["qa4sm_version"],
-                'qa4sm_url': self.runs[-1].connection.session.base_url,
+                'qa4sm_url': list(self.runs.values())[-1].connection.session.base_url,
                 'interval_days': all_vars.data["ConfigVars"]["interval_days"],
                 'interval_from': all_vars.data["ConfigVars"]["interval_from"],
                 'interval_to': all_vars.data["ConfigVars"]["interval_to"],
@@ -443,7 +527,10 @@ class AutoReportCreator:
         tex = placeholder.sub(replacer, tex)
         Path(out_file).write_text(tex, encoding="utf-8")
 
-    def compile(self, template_path, run_tex='run.tex',
+    def compile(self, template_path,
+                main_tex="main.tex",
+                run_tex='run.tex',
+                tex_ignore=None,
                 from_scratch=False):
         """
         Collect contents to compile PDF report from templates.
@@ -451,12 +538,18 @@ class AutoReportCreator:
         Parameters
         ----------
         template_path: str or Path
-            Path where the templates latex files ar stored.
-        run_tex:
+            Path where the templates latex files are stored.
+        main_tex: str, optional
+            Main tex file
+        run_tex: str, optional
             Tex file template to use for runs (have separate yml bindings).
+        tex_ignore: list, optional
+            A list of tex files in the template path to ignore
         from_scratch: bool, optional
             Download and collect data, even if it already exists.
         """
+        tex_ignore = tex_ignore or []
+
         self.collect_content(from_scratch)  # todo: include!
         template_path = Path(template_path)
 
@@ -471,23 +564,23 @@ class AutoReportCreator:
             "ReportVars": self.report_root / "ReportVars.yml"
         }
 
-        for i, run in enumerate(self.runs, start=1):
+        for i, run in enumerate(list(self.runs.values()), start=1):
             yaml_bindings[f"Run{i}ContentVars"] = run.local_root / "ContentVars.yml"
 
         for f in glob.glob(str(template_path / "*.tex")):
             name = os.path.basename(f)
-            if name == run_tex:
+            if (name == run_tex) or (name in tex_ignore):
                 continue
             #out_name = name.replace('template_', '')
             self.populate_latex(f,
                                 self.report_root / name,
                                 yaml_bindings)
 
-        for i, run in enumerate(self.runs, start=1):
+        for i, run in enumerate(list(self.runs.values()), start=1):
             yaml_bindings["ContentVars"] = run.local_root / "ContentVars.yml"
-            print(run.local_root)
-            self.populate_latex(template_path / "run.tex",
-                                run.local_root / "run.tex",
+            #print(run.local_root)
+            self.populate_latex(template_path / run_tex,
+                                run.local_root / run_tex,
                                 yaml_bindings)
 
         os.makedirs(str(self.report_root / "pdf_report"), exist_ok=True)
@@ -496,7 +589,7 @@ class AutoReportCreator:
             for i in range(4):
                 try:
                     ret = subprocess.run(
-                        ["pdflatex", "-interaction=nonstopmode", "main.tex"],
+                        ["pdflatex", "-interaction=nonstopmode", main_tex],
                         capture_output=True, text=True, check=True,
                         cwd=str(self.report_root), timeout=100
                     )
@@ -515,7 +608,7 @@ class AutoReportCreator:
                 if i == 0:
                     try:
                         subprocess.run(
-                            ["bibtex", "main"],
+                            ["bibtex", main_tex.replace('.tex', '')],
                             capture_output=True, text=True, check=True,
                             cwd=str(self.report_root), timeout=100
                         )

@@ -37,8 +37,13 @@ qa4sm-autoreports
     Add a short description here!
 
 
-A longer description of your project goes here...
+Preparation
 
+pdflatex
+
+Test will create a connection to test.qa4sm.eu. Therefore you must either
+- have the .qa4smapirc set up locally or
+- set the QA4SM_INSTANCE and QA4SM_TOKEN environment variables
 
 .. _pyscaffold-notes:
 

@@ -1,21 +1,21 @@
-import warnings
+# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: Copyright (c) 2026 TU Wien & AWST
+# SPDX-FileCopyrightText: For a full list of authors, see the AUTHORS file.
 
+import warnings
 import numpy as np
 from pathlib import Path
-import shutil
 from typing import Union
-import time
 import os
 import pandas as pd
-from qa4sm_autoreports.data import Data
 import matplotlib.pyplot as plt
 
+from qa4sm_autoreports.data import Data
 from qa4sm_autoreports.report import AutoReportCreator
-from qa4sm_api.client_api import Connection
 
 
 class AutoReportSeries:
-    def __init__(self, series_root, reports=None):
+    def __init__(self, series_root, reports=None, connection=None):
         """
         Cross-report collection with the same validation settings, datasets,
         report template etc.
@@ -28,9 +28,13 @@ class AutoReportSeries:
             Subset of local validation report names (folders in series_root)
             to load only.
             If an int is passed, we load last n reports only
+        connection: Connection, optional
+            Connection to use for all reports. If None, connections will be
+            created based on the instance in each report's config file.
         """
         self.series_root = Path(series_root)
         self.name = self.series_root.name
+        self.connection = connection
 
         if not self.series_root.exists():
             raise ValueError(f"series_root {self.series_root} does not exist.")
@@ -68,7 +72,8 @@ class AutoReportSeries:
                     if f.name not in subset:
                         continue
                 r = AutoReportCreator.from_results(
-                    report_root=self.series_root / f.name)
+                    report_root=self.series_root / f.name,
+                    connection=self.connection)
                 name = r.name
                 reports[name] = r
 
@@ -86,9 +91,9 @@ class AutoReportSeries:
             if isinstance(r, str):
                 status = "DUMMY REPORT"
             else:
-                status = r.status
+                status = r._STATUS_LUT[r.status]
                 name = r.name
-            s += f"Validation Report {i+1} [{status}]: {str(name)}\n"
+            s += f"Report {i} [{status}]: {str(name)}\n"
             i += 1
 
         if i == 0:
@@ -124,6 +129,7 @@ class AutoReportSeries:
         # (Re)load a single report by name from the list
         r = AutoReportCreator.from_results(
             report_root=self.series_root / name,
+            connection=self.connection
         )
 
         self.reports[r.name] = r
@@ -140,33 +146,15 @@ class AutoReportSeries:
         """
         s = []
         for name, report in self.reports.items():
-            if report.status.lower() == 'collected':
+            if report.status >= 2:
                 s.append(True)
             else:
                 s.append(False)
 
         return bool(np.all(s))
 
-    def load_reports(self, reports=None):
-        """
-        Load one or multiple reports from the list
-        (change their status from [NOT LOADED])
-
-        Parameters
-        ----------
-        reports: int or str or List[int, str]
-            Report name(s) or id(s) from the list to load.
-        """
-        if reports is None:
-            reports = np.array(list(self.reports.keys()))
-
-        reports = np.atleast_1d(reports).tolist()
-
-        for r in reports:
-            self._load_by_name(self._name(r))
-
     def new_report(self, report_name, config_template_path,
-                   override_params=None, instance="qa4sm.eu"):
+                   override_params=None, instance="qa4sm.eu", token=None):
         """
         Start a new validation report from config templates on the chosen
         instance, download and collect all results.
@@ -181,11 +169,18 @@ class AutoReportSeries:
             Params to override settings in config file
         instance: str, optional
             Instance to use for the report
+        token: str, optional
+            API token for authentication. If None, uses the connection from
+            the series if available, otherwise creates a new connection without
+            token.
         """
         if report_name in self.reports:
             raise KeyError(f"Report {report_name} already exists")
 
-        connection = Connection(instance=instance)
+        if token is None and self.connection is not None:
+            connection = self.connection
+        else:
+            connection = Connection(instance=instance, token=token)
 
         report = AutoReportCreator.from_scratch(
             self.series_root / report_name, config_template_path,
@@ -201,6 +196,21 @@ class AutoReportSeries:
 
         return report
 
+    def delete_report(self, report_name, remote=True):
+        """
+        Delete report from series. By default, also deletes the online runs and
+        local copies of the validation runs.
+
+        Parameters
+        ----------
+        report_name: str, int
+            Name of the report to delete from the series
+        remote: bool, optional
+            Remove the online version of the respective validation runs
+        """
+        self.reports[report_name].delete(remote=remote)
+        self.reports = self._load_local_reports(list(self.reports.keys()))
+
     @staticmethod
     def _select_epochs(epochs: list, ref_epoch: int, n_epoch: int) -> list:
         """
@@ -208,19 +218,19 @@ class AutoReportSeries:
 
         Parameters
         ----------
-        epochs : list
+        epochs: list
             Sorted list of epoch strings, ordered from earliest to latest.
-        ref_epoch : int
+        ref_epoch: int
             Reference epoch index. Supports negative indexing (e.g. -2 selects
             the second-to-last epoch).
-        n_epoch : int
+        n_epoch: int
             Total number of epochs to return, counting backwards from and
-            including the reference epoch (e.g. n_epoch=3 returns the reference
+            including the reference epoch (e.g., n_epoch=3 returns the reference
             plus the 2 epochs preceding it).
 
         Returns
         -------
-        list
+        epochs: list
             Subset of ``epochs`` of length ``min(n_epoch, ref_idx + 1)``,
             ending at and including the reference epoch.
         """
@@ -228,24 +238,26 @@ class AutoReportSeries:
         start_idx = max(0, ref_idx - (n_epoch - 1))  # -1 because ref counts as one
         return epochs[start_idx: ref_idx + 1]
 
-    def track_metrics(self,
-                      metric,
-                      ref_epoch=-1,
-                      n_epochs=10,
-                      run=None,
-                      path_out=None,
-                      pretty_name='ubRMSD',
-                      unit='m³m⁻³',
-                      p_mask_var=None,
-                      p_mask_thres=0.05,
-                      tsw='bulk', preprocess=None):
+    def track_metric(self,
+                     metric,
+                     ref_epoch=-1,
+                     n_epochs=10,
+                     run=None,
+                     path_out=None,
+                     pretty_name='ubRMSD',
+                     unit='m³m⁻³',
+                     p_mask_var=None,
+                     p_mask_thres=0.05,
+                     tsw='bulk',
+                     preprocess=None):
         """
         Create metric tracking data and plot
 
         Parameters
         ----------
         metric: str, optional
-            Metric to track across the epochs. e.g. R_between_0-ISMN_and_1-C3S_combined
+            Metric to track across the epochs.
+            e.g. R_between_0-ISMN_and_1-C3S_combined
         ref_epoch: int, optional
             Reference epoch, i.e. latest one. -1 uses the last report (ordered
             by name).
@@ -268,14 +280,14 @@ class AutoReportSeries:
             To mask data points where p>thres, pass the p variable name here.
             The same can be achieved via the preprocess function.
         p_mask_thres: float, optional
-            The p value thereshold used for masking, only used when p_mask_var
+            The p value threshold used for masking, only used when p_mask_var
             is passed.
-        tsw: int
-            Temporal subwindow to use
+        tsw: str, optional
+            Temporal sub-window to use (netcdf dimension). Default is "bulk"
         preprocess: Callable, optional
             Apply to dataset after loading, can be used for e.g. p value masking
             must take and return a dataset. e.g.
-                def _p(ds): ...; return ds
+                lambda ds: ds
         """
         reports = self._select_epochs(list(self.reports.keys()), ref_epoch, n_epochs)
         path_out = path_out or self.series_root / reports[-1] / "tracking"
@@ -326,7 +338,7 @@ class AutoReportSeries:
                 warnings.warn("Mean could not be computed.")
 
             all_stats[report] = stats
-
+        ##
 
         other_stats = {
             'tracking_status': 'green'
@@ -377,17 +389,17 @@ if __name__ == '__main__':
     from glob import glob
     from qa4sm_api.client_api import ValidationConfiguration
 
-    config_templ = "/home/wpreimes/shares/home/code/qa4sm-autoreports/tests/test_series/report_config_templates"
+    config_templ = "/home/wpreimes/shares/home/code/qa4sm-autoreports/tests/testdata/report_config_templates"
     out_path = Path("/home/wpreimes/shares/home/code/qa4sm-autoreports/tests/testdata/test_series")
 
     series = AutoReportSeries(series_root=out_path)
 
-    series.track_metrics(metric='urmsd_between_0-ISMN_and_1-C3S_combined',
-                         unit='m³m⁻³', ref_epoch=-1, n_epochs=10)
+    series.track_metric(metric='urmsd_between_0-ISMN_and_1-C3S_combined',
+                        unit='m³m⁻³', ref_epoch=-1, n_epochs=10)
 
-    series.track_metrics(metric='R_between_0-ISMN_and_1-C3S_combined',
-                         pretty_name='R', unit='-', ref_epoch=-1, n_epochs=10,
-                         p_mask_var='p_R_between_0-ISMN_and_1-C3S_combined')
+    series.track_metric(metric='R_between_0-ISMN_and_1-C3S_combined',
+                        pretty_name='R', unit='-', ref_epoch=-1, n_epochs=10,
+                        p_mask_var='p_R_between_0-ISMN_and_1-C3S_combined')
 
 
 

@@ -1,7 +1,10 @@
+# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: Copyright (c) 2026 TU Wien & AWST
+# SPDX-FileCopyrightText: For a full list of authors, see the AUTHORS file.
+
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
-
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import cartopy.crs as ccrs

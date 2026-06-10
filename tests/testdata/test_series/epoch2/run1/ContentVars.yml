@@ -1,0 +1,175 @@
+report_run_index: 1
+remote_id: 46307296-0b96-4e23-9dcc-d0f2b15f96a2
+ConfigVars:
+  scaling_reference: null
+  spatial_reference: ISMN (20250617 global)
+  temporal_reference: C3S SM combined (v202505)
+  tcol_metrics: false
+  stability_metrics: false
+  interval_days: 90
+  DS0:
+    dataset_id: 1
+    version_id: 70
+    variable_id: 1
+    is_spatial_reference: false
+    is_temporal_reference: true
+    is_scaling_reference: false
+    basic_filters:
+    - 1
+    parametrised_filters: []
+    name: C3S SM combined
+    version: v202505
+    variable: C3S_sm
+    basic_filters_description:
+    - description: Variable in valid geophysical range
+      help_text: Compared variable is checked for NaNs and invalid values.
+    parametrised_filters_description: []
+  DS1:
+    dataset_id: 4
+    version_id: 69
+    variable_id: 4
+    is_spatial_reference: true
+    is_temporal_reference: false
+    is_scaling_reference: false
+    basic_filters:
+    - 1
+    - 2
+    parametrised_filters:
+    - id: 24
+      parameters: 0.00,0.10
+    - id: 18
+      parameters: AMMA-CATCH,DAHRA,TAHMO,SD_DEM,CHINA,CTP_SMTMN,HiWATER_EHWSN,HSC_SEOLMACHEON,IIT_KANPUR,KHOREZM,MAQU,MONGOLIA,MySMNet,RUSWET-AGRO,RUSWET-GRASS,RUSWET-VALDAI,SKKU,SW-WHU,KIHS_CMC,KIHS_SMC,VDS,NAQU,NGARI,SMN-SDR,SONTE-China,WIT-Network,AACES,OZNET,SASMAS,BIEBRZA_S-1,CALABRIA,CAMPANIA,FMI,FR_Aqui,GROW,GTK,HOBE,HYDROL-NET_PERUGIA,IMA_CAN1,METEROBS,MOL-RAO,ORACLE,REMEDHUS,RSMN,SMOSMANIA,SWEX_POLAND,TERENO,UDC_SMOS,UMBRIA,UMSUOL,VAS,WEGENERNET,WSMN,HOAL,IPE,COSMOS-UK,LABFLUX,NVE,Ru_CFR,STEMS,TWENTE,XMS-CAT,ARM,AWDN,BNZ-LTER,FLUXNET-AMERIFLUX,ICN,IOWA,PBO_H2O,RISMA,SCAN,SNOTEL,SOILSCAPE,USCRN,USDA-ARS,TxSON,LAB-net,PTSMN
+    name: ISMN
+    version: 20250617 global
+    variable: ISMN_soil_moisture
+    basic_filters_description:
+    - description: Variable in valid geophysical range
+      help_text: Compared variable is checked for NaNs and invalid values.
+    - description: Quality flag is "good" (G)
+      help_text: Soil moisture quality flag is "G" for good.
+    parametrised_filters_description:
+    - description: Use measurements at given depth
+      help_text: "Obligatory filter. \nClick 'select' to introduce soil moisture depths"
+      parameters: 0.00,0.10
+    - description: Use ISMN networks
+      help_text: "Obligatory filter. \nClick 'select' to chose the ISMN networks to\
+        \ use in this validation. If no network is chosen, there will be no result\
+        \ returned."
+      parameters: AMMA-CATCH,DAHRA,TAHMO,SD_DEM,CHINA,CTP_SMTMN,HiWATER_EHWSN,HSC_SEOLMACHEON,IIT_KANPUR,KHOREZM,MAQU,MONGOLIA,MySMNet,RUSWET-AGRO,RUSWET-GRASS,RUSWET-VALDAI,SKKU,SW-WHU,KIHS_CMC,KIHS_SMC,VDS,NAQU,NGARI,SMN-SDR,SONTE-China,WIT-Network,AACES,OZNET,SASMAS,BIEBRZA_S-1,CALABRIA,CAMPANIA,FMI,FR_Aqui,GROW,GTK,HOBE,HYDROL-NET_PERUGIA,IMA_CAN1,METEROBS,MOL-RAO,ORACLE,REMEDHUS,RSMN,SMOSMANIA,SWEX_POLAND,TERENO,UDC_SMOS,UMBRIA,UMSUOL,VAS,WEGENERNET,WSMN,HOAL,IPE,COSMOS-UK,LABFLUX,NVE,Ru_CFR,STEMS,TWENTE,XMS-CAT,ARM,AWDN,BNZ-LTER,FLUXNET-AMERIFLUX,ICN,IOWA,PBO_H2O,RISMA,SCAN,SNOTEL,SOILSCAPE,USCRN,USDA-ARS,TxSON,LAB-net,PTSMN
+  name_tag: test
+  interval_from: '2020-04-01'
+  interval_to: '2020-06-30'
+  temporal_matching: 12
+  anomalies_method: none
+  anomalies_from: null
+  anomalies_to: null
+  min_lat: 19.095097036262146
+  min_lon: -156.3971863811718
+  max_lat: 20.4067416381494
+  max_lon: -154.67868591465736
+  scaling_method: none
+  metrics:
+  - id: tcol
+    value: false
+  - id: bootstrap_tcol_cis
+    value: false
+  - id: stability_metrics
+    value: false
+  intra_annual_metrics:
+    intra_annual_metrics: false
+    intra_annual_type: ''
+    intra_annual_overlap: null
+  val_type: temporal
+  settings_changes:
+    filters: []
+    anomalies: false
+    scaling: false
+    variables: []
+    versions: []
+NetcdfMetaVars:
+  id: 0-ISMN.soil_moisture_with_1-C3S_combined.sm.nc
+  date_created: '2026-04-28 08:14:13'
+  qa4sm_version: 3.2.1
+  qa4sm_reader_version: 0.12.2.post1.dev6+gb241173e8
+  qa4sm_env_url: https://github.com/awst-austria/qa4sm/blob/v3.2.1/environment/qa4sm_env.yml
+  url: https://test.qa4sm.eu/ui/validation-result/46307296-0b96-4e23-9dcc-d0f2b15f96a2
+  val_is_scattered_data: 'True'
+  val_interval_from: 2020-04-01 00:00
+  val_interval_to: 2020-06-30 00:00
+  val_dc_dataset1: C3S_combined
+  val_dc_version1: C3S_V202505
+  val_dc_variable1: C3S_sm
+  val_dc_unit1: "m\xB3/m\xB3"
+  val_dc_dataset_pretty_name1: C3S SM combined
+  val_dc_version_pretty_name1: v202505
+  val_dc_variable_pretty_name1: sm
+  val_dc_filters1: Variable in valid geophysical range
+  val_dc_actual_interval_from1: '2020-04-01'
+  val_dc_actual_interval_to1: '2020-06-30'
+  val_dc_dataset1_grid_stepsize: nan
+  val_dc_dataset0: ISMN
+  val_dc_version0: ISMN_V20250617
+  val_dc_variable0: ISMN_soil_moisture
+  val_dc_unit0: "m\xB3/m\xB3"
+  val_dc_dataset_pretty_name0: ISMN
+  val_dc_version_pretty_name0: 20250617 global
+  val_dc_variable_pretty_name0: soil_moisture
+  val_dc_filters0: Variable in valid geophysical range; Quality flag is "good" (G);Use
+    measurements at given depth 0.00,0.10; Use ISMN networks AMMA-CATCH,DAHRA,TAHMO,SD_DEM,CHINA,CTP_SMTMN,HiWATER_EHWSN,HSC_SEOLMACHEON,IIT_KANPUR,KHOREZM,MAQU,MONGOLIA,MySMNet,RUSWET-AGRO,RUSWET-GRASS,RUSWET-VALDAI,SKKU,SW-WHU,KIHS_CMC,KIHS_SMC,VDS,NAQU,NGARI,SMN-SDR,SONTE-China,WIT-Network,AACES,OZNET,SASMAS,BIEBRZA_S-1,CALABRIA,CAMPANIA,FMI,FR_Aqui,GROW,GTK,HOBE,HYDROL-NET_PERUGIA,IMA_CAN1,METEROBS,MOL-RAO,ORACLE,REMEDHUS,RSMN,SMOSMANIA,SWEX_POLAND,TERENO,UDC_SMOS,UMBRIA,UMSUOL,VAS,WEGENERNET,WSMN,HOAL,IPE,COSMOS-UK,LABFLUX,NVE,Ru_CFR,STEMS,TWENTE,XMS-CAT,ARM,AWDN,BNZ-LTER,FLUXNET-AMERIFLUX,ICN,IOWA,PBO_H2O,RISMA,SCAN,SNOTEL,SOILSCAPE,USCRN,USDA-ARS,TxSON,LAB-net,PTSMN
+  val_dc_actual_interval_from0: '1978-01-01'
+  val_dc_actual_interval_to0: '2026-04-28'
+  val_ref: val_dc_dataset0
+  val_dc_dataset0_grid_stepsize: nan
+  val_scaling_method: none
+  val_anomalies: none
+  val_spatial_subset: '[19.095097036262146, -156.3971863811718, 20.4067416381494,
+    -154.67868591465736]'
+NetcdfVars:
+  n_gpis: 25
+  n_status:
+  - 25
+  percent_ok:
+  - 4
+RemoteVars:
+  run_status: DONE
+  run_progress: 100
+  run_duration: 00:01:12
+  run_start: '2026-04-28 08:13:52.556000+00:00'
+  run_end: '2026-04-28 08:15:04.709000+00:00'
+SummaryVars:
+  MEAN_N. OBS.: 3.44
+  MEDIAN_N. OBS.: 0.0
+  IQ RANGE_N. OBS.: 0.0
+  MEAN_PEARSON'S R: 0.44
+  MEDIAN_PEARSON'S R: 0.44
+  IQ RANGE_PEARSON'S R: 0.0
+  MEAN_SPEARMAN'S RHO: 0.45
+  MEDIAN_SPEARMAN'S RHO: 0.45
+  IQ RANGE_SPEARMAN'S RHO: 0.0
+  MEAN_ROOT-MEAN-SQUARE DEVIATION: 0.15
+  MEDIAN_ROOT-MEAN-SQUARE DEVIATION: 0.15
+  IQ RANGE_ROOT-MEAN-SQUARE DEVIATION: 0.0
+  MEAN_BIAS: -0.14
+  MEDIAN_BIAS: -0.14
+  IQ RANGE_BIAS: 0.0
+  MEAN_UNBIASED ROOT-MEAN-SQUARE DEVIATION: 0.0533
+  MEDIAN_UNBIASED ROOT-MEAN-SQUARE DEVIATION: 0.0533
+  IQ RANGE_UNBIASED ROOT-MEAN-SQUARE DEVIATION: 0.0
+  MEAN_MEAN SQUARE ERROR: 0.0214
+  MEDIAN_MEAN SQUARE ERROR: 0.0214
+  IQ RANGE_MEAN SQUARE ERROR: 0.0
+  MEAN_MEAN SQUARE ERROR CORRELATION: 0.00194
+  MEDIAN_MEAN SQUARE ERROR CORRELATION: 0.00194
+  IQ RANGE_MEAN SQUARE ERROR CORRELATION: 0.0
+  MEAN_MEAN SQUARE ERROR BIAS: 0.0185
+  MEDIAN_MEAN SQUARE ERROR BIAS: 0.0185
+  IQ RANGE_MEAN SQUARE ERROR BIAS: 0.0
+  MEAN_MEAN SQUARE ERROR VARIANCE: 0.000897
+  MEDIAN_MEAN SQUARE ERROR VARIANCE: 0.000897
+  IQ RANGE_MEAN SQUARE ERROR VARIANCE: 0.0
+  MEAN_RESIDUAL SUM OF SQUARES: 1.84
+  MEDIAN_RESIDUAL SUM OF SQUARES: 1.84
+  IQ RANGE_RESIDUAL SUM OF SQUARES: 0.0
+  MEAN_VALIDATION ERRORS: 6.72
+  MEDIAN_VALIDATION ERRORS: 7.0
+  IQ RANGE_VALIDATION ERRORS: 0.0

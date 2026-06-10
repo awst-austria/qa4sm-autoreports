@@ -1,8 +1,0 @@
-instance: test.qa4sm.eu
-token: 2b37740a1f6733c9cfc2e1e105abe974ff8c4204
-# candidate_dataset_id: 15
-run1:
-  config: smos_c3s.json
-run2:
-  config: smos_era5land.json
-series_root: /data-read/USERS/wpreimes/qa4sm_smos_report

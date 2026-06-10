@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: Copyright (c) 2026 TU Wien & AWST
+# SPDX-FileCopyrightText: For a full list of authors, see the AUTHORS file.
+
 import yaml
 from pathlib import Path
 
@@ -51,9 +55,10 @@ def load_yml_to_dict(filepath: str | Path) -> dict:
         Path to the yml content
 
     Returns:
-        data: dict
-            The first level are the content sections names, sublevels are the
-            variables in that section.
+    -------
+    data: dict
+        The first level are the content sections names, sub-levels are the
+        variables in that section.
     """
     filepath = Path(filepath)
     if not filepath.exists():
@@ -68,31 +73,3 @@ def load_yml_to_dict(filepath: str | Path) -> dict:
         raise ValueError("YAML content did not parse to a dictionary.")
 
     return data
-
-
-def populate_latex(template, file_out,
-                   placeholder="{{PLACEHOLDER}}", replacement="",
-                   template_direct=False):
-    """
-    Read LaTeX template, replace placeholders with data and write to file.
-    """
-    try:
-        # Read the LaTeX file
-        with open(template, 'r', encoding='utf-8') as f:
-            content = f.read()
-
-        # Perform search and replace
-        updated_content = content.replace(placeholder, replacement)
-
-        # Write back to file
-        with open(file_out, 'w', encoding='utf-8') as f:
-            f.write(updated_content)
-
-        # Report number of replacements made
-        num_replacements = content.count(placeholder)
-        print(f"Made {num_replacements} replacement(s)")
-
-    except FileNotFoundError:
-        print(f"Error: Template '{template}' not found")
-    except Exception as e:
-        print(f"Error processing file: {e}")

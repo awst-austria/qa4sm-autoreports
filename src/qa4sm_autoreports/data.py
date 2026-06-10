@@ -1,13 +1,17 @@
-import glob
+# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: Copyright (c) 2026 TU Wien & AWST
+# SPDX-FileCopyrightText: For a full list of authors, see the AUTHORS file.
 
+import glob
 import os
 import pandas as pd
 import yaml
 from typing import Union
 import xarray as xr
 from pathlib import Path
+
 from qa4sm_autoreports.run import (
-    ValidationRun, Connection, ValidationConfiguration
+    ValidationRun, ValidationConfiguration
 )
 from qa4sm_autoreports.utils import load_yml_to_dict
 
@@ -23,6 +27,7 @@ class Data:
             self.data = data
 
     def _reset(self):
+        # Empty data dict
         self.data = dict()
         return self.data
 
@@ -33,7 +38,7 @@ class Data:
 
         Parameters
         ----------
-        path: str
+        path: str or Path
             Path to the yml file to load content from
         """
         data = load_yml_to_dict(path)
@@ -99,19 +104,6 @@ class Data:
 
         with open(str(path), mode) as f:
             yaml.dump(self.data, f, default_flow_style=False, sort_keys=False)
-
-
-# class SeriesData(Data):
-#     """
-#     Collection of data from multiple validation reports for a series
-#     """
-#     def __init__(self, report_series: "AutoReportSeries"):
-#         self.series = report_series
-#         super(SeriesData, self).__init__()
-#
-#     def collect(self):
-#         report_names = list(self.series.reports.keys())
-#
 
 
 class RunData(Data):
@@ -200,15 +192,9 @@ class SummaryStatsData(RunData):
         df = self._load_sum_stats()
         df.to_csv(path, sep=';', index_label='Metric')
 
-    def collect(self, stats: list = None):
+    def collect(self):
         """
         Collect all relevant stats from the downloaded summary table
-
-        Parameters
-        ----------
-        stats: list
-            List of stats to collect, if None are selected we collect
-            Median, Mean and IQR
         """
         df = self._load_sum_stats(drop_unit=True)
 
@@ -280,6 +266,7 @@ class NetcdfMetaData(RunData):
         nc_attrs = self.collect_metadata_content()
         self.add(nc_attrs, "NetcdfMetaVars")
         return self
+
 
 class ConfigData(RunData):
     """
@@ -388,35 +375,4 @@ class ConfigData(RunData):
         self.add(run_vars, "ConfigVars")
 
         return self
-
-
-if __name__ == '__main__':
-    dat = SeriesData("/home/wpreimes/shares/home/code/qa4sm-autoreports/tests/testdata/test_series")
-    dat.collect()
-
-
-    QA4SM_IP_OR_URL = "test.qa4sm.eu"
-    QA4SM_API_TOKEN = "2b37740a1f6733c9cfc2e1e105abe974ff8c4204"
-    qa4sm = Connection(QA4SM_IP_OR_URL, QA4SM_API_TOKEN)
-    # qa4sm.login(username, password)
-
-    name1 = "01-SmosL2-vs-C3sComb-abs"
-    id1 = "6eb61199-59b8-4ecc-8e3c-7b1139df4a05"
-    lroot1 = f"/data-read/USERS/wpreimes/qa4sm_smos_report/{name1}"
-    run1 = ValidationRun.from_remote(lroot1, qa4sm, id1)
-    #run1.download_data()
-
-
-    #
-    # name2 = "02-SmosL2-vs-Era5Land-abs"
-    # id2 = "e95eeaeb-1d2f-43c4-b019-b7f3b3dbd29e"
-    # lroot2 = f"/data-read/USERS/wpreimes/qa4sm_smos_report/{name2}"
-    # run2 = ValidationRun.from_remote(lroot2, qa4sm, id2)
-    # run2.download_data()
-    # config_vars = ConfigVariables(run2).collect()
-    # nc_stats = NetcdfVariables(run2).collect()
-    # sum_stats = SummaryStatsVariables(run2).collect()
-    # sum_stats.dump(os.path.join(lroot2, 'ContentVars.yml'), overwrite=True)
-    # nc_stats.dump(os.path.join(lroot2, 'ContentVars.yml'))
-    # config_vars.dump(os.path.join(lroot2, 'ContentVars.yml'))
 
