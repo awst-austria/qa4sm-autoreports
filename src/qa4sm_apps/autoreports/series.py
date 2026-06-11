@@ -10,8 +10,8 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from qa4sm_autoreports.data import Data
-from qa4sm_autoreports.report import AutoReportCreator
+from qa4sm_apps.data import Data
+from qa4sm_apps.report import AutoReportCreator
 
 
 class AutoReportSeries:
