@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 
 from qa4sm_autoreports.data import Data
 from qa4sm_autoreports.report import AutoReportCreator
+from qa4sm_api.client_api import Connection
 
 
 class AutoReportSeries:
@@ -389,7 +390,6 @@ class AutoReportSeries:
 
 
 if __name__ == '__main__':
-    from qa4sm_api.client_api import Connection
 
     config_templ = "/home/wpreimes/shares/home/code/qa4sm-autoreports/tests/testdata/report_config_templates"
     out_path = Path("/tests/testdata/test_series")
