@@ -125,7 +125,7 @@ class TestFullReport(unittest.TestCase):
 
             status_str = report._STATUS_LUT[report.status].lower()
             if status_str == 'staged':
-                print("Staged. Trigger")
+                print("Staged. Triggering...")
                 report.start_all_runs()
 
                 t = 0

@@ -10,7 +10,7 @@ version_scheme = "no-guess-dev"
 
 [project]
 name = "qa4sm_autoreports"
-description = "Automatic validation report generation with QA4SM"
+description = "Applications built on the QA4SM service API"
 readme = { file = "README.rst", content-type = "text/x-rst" }
 license = { text = "MIT" }
 authors = [
@@ -27,21 +27,21 @@ dependencies = [
     "pandas",
     "numpy",
     "qa4sm-api>=0.2",
+    "pyyaml",
+    "PyQt5",
     "matplotlib",
     "cartopy",
     "xarray",
     "netCDF4",
-    "PyQt5",
-    "pyyaml",
-    "pdflatex"
 ]
 dynamic = ["version"]
 
 [project.urls]
-Homepage = "https://github.com/awst-austria/qa4sm-autoreports"
+Homepage = "https://qa4sm.eu"
 Documentation = "https://awst-austria.github.io/qa4sm-autoreports"
 
 [project.optional-dependencies]
+
 testing = [
     "pytest",
     "pytest-cov",

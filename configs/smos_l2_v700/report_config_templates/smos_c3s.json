@@ -1,15 +1,15 @@
 {
   "name_tag": "SMOS L2 vs C3S SM",
-  "interval_from": "2023-01-01",
-  "interval_to": "2023-03-31",
+  "interval_from": "9999-01-01",
+  "interval_to": "9999-12-31",
   "temporal_matching": 24,
   "anomalies_method": "none",
   "anomalies_from": "1990-01-01",
   "anomalies_to": "2020-12-30",
-  "min_lat": -17.0,
-  "min_lon": 140.0,
-  "max_lat": -12.0,
-  "max_lon": 150.0,
+  "min_lat": -90.0,
+  "min_lon": -180.0,
+  "max_lat": 90.0,
+  "max_lon": 180.0,
   "scaling_method": "none",
   "metrics": [
     {

@@ -2,9 +2,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 TU Wien & AWST
 # SPDX-FileCopyrightText: For a full list of authors, see the AUTHORS file.
 
-import yaml
-from pathlib import Path
-
 
 def escape_latex(value: str) -> str:
     """
@@ -45,31 +42,3 @@ class ValidationReportError(Exception):
         super().__init__(self.message)
 
 
-def load_yml_to_dict(filepath: str | Path) -> dict:
-    """
-    Load a QA4SM-style YAML config/results file into a nested dictionary.
-
-    Parameters
-    ----------
-    filepath: str or Path
-        Path to the yml content
-
-    Returns:
-    -------
-    data: dict
-        The first level are the content sections names, sub-levels are the
-        variables in that section.
-    """
-    filepath = Path(filepath)
-    if not filepath.exists():
-        raise FileNotFoundError(f"No file found at: {filepath}")
-    if filepath.suffix not in (".yml", ".yaml"):
-        raise ValueError(f"Expected a .yml/.yaml file, got: {filepath.suffix}")
-
-    with open(filepath, "r", encoding="utf-8") as f:
-        data = yaml.safe_load(f)
-
-    if not isinstance(data, dict):
-        raise ValueError("YAML content did not parse to a dictionary.")
-
-    return data

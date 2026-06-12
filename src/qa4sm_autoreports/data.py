@@ -13,7 +13,40 @@ from pathlib import Path
 from qa4sm_autoreports.run import (
     ValidationRun, ValidationConfiguration
 )
-from qa4sm_autoreports.utils import load_yml_to_dict
+
+"""
+Containers for various types of data from QA4SM (e.g. stats, results, config,
+...). Each container comes with a function to collect the required data.
+"""
+
+def load_yml_to_dict(filepath: str | Path) -> dict:
+    """
+    Load a QA4SM-style YAML config/results file into a nested dictionary.
+
+    Parameters
+    ----------
+    filepath: str or Path
+        Path to the yml content
+
+    Returns:
+    -------
+    data: dict
+        The first level are the content sections names, sub-levels are the
+        variables in that section.
+    """
+    filepath = Path(filepath)
+    if not filepath.exists():
+        raise FileNotFoundError(f"No file found at: {filepath}")
+    if filepath.suffix not in (".yml", ".yaml"):
+        raise ValueError(f"Expected a .yml/.yaml file, got: {filepath.suffix}")
+
+    with open(filepath, "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+
+    if not isinstance(data, dict):
+        raise ValueError("YAML content did not parse to a dictionary.")
+
+    return data
 
 
 class Data:

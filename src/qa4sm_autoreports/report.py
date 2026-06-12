@@ -17,10 +17,10 @@ import subprocess
 from typing import Union
 
 from qa4sm_api.client_api import Connection
-from qa4sm_apps.extent import GeographicExtent
-import qa4sm_apps as utils
-from qa4sm_apps.run import ValidationRun
-from qa4sm_apps.data import (
+from qa4sm_autoreports.extent import GeographicExtent
+import qa4sm_autoreports as utils
+from qa4sm_autoreports.run import ValidationRun
+from qa4sm_autoreports.data import (
     NetcdfMetaData,
     NetcdfData,
     SummaryStatsData,

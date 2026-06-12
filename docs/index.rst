@@ -1,6 +1,6 @@
-=================
+============
 qa4sm-autoreports
-=================
+============
 
 This is the documentation of **qa4sm-autoreports**.
 

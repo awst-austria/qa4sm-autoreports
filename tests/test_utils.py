@@ -1,9 +1,8 @@
 import pytest
-import tempfile
-import os
 from pathlib import Path
 
-from qa4sm_autoreports.utils import escape_latex, load_yml_to_dict, ValidationReportError
+from qa4sm_autoreports.utils import escape_latex, ValidationReportError
+from qa4sm_autoreports.data import load_yml_to_dict
 
 
 class TestEscapeLatex:

@@ -10,8 +10,8 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from qa4sm_apps.data import Data
-from qa4sm_apps.report import AutoReportCreator
+from qa4sm_autoreports.data import Data
+from qa4sm_autoreports.report import AutoReportCreator
 
 
 class AutoReportSeries:
@@ -258,9 +258,10 @@ class AutoReportSeries:
         metric: str, optional
             Metric to track across the epochs.
             e.g. R_between_0-ISMN_and_1-C3S_combined
-        ref_epoch: int, optional
+        ref_epoch: int or str, optional
             Reference epoch, i.e. latest one. -1 uses the last report (ordered
             by name).
+            A number refers to the repoch index, a string to the report name
         n_epochs: int, optional
             Number of epochs BEFORE the reference epochs to include (includes
             the reference).
@@ -289,6 +290,9 @@ class AutoReportSeries:
             must take and return a dataset. e.g.
                 lambda ds: ds
         """
+        if isinstance(ref_epoch, str):
+            ref_epoch = list(self.reports.keys()).index(ref_epoch)
+
         reports = self._select_epochs(list(self.reports.keys()), ref_epoch, n_epochs)
         path_out = path_out or self.series_root / reports[-1] / "tracking"
         os.makedirs(path_out, exist_ok=True)
@@ -386,11 +390,9 @@ class AutoReportSeries:
 
 if __name__ == '__main__':
     from qa4sm_api.client_api import Connection
-    from glob import glob
-    from qa4sm_api.client_api import ValidationConfiguration
 
     config_templ = "/home/wpreimes/shares/home/code/qa4sm-autoreports/tests/testdata/report_config_templates"
-    out_path = Path("/home/wpreimes/shares/home/code/qa4sm-autoreports/tests/testdata/test_series")
+    out_path = Path("/tests/testdata/test_series")
 
     series = AutoReportSeries(series_root=out_path)
 

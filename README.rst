@@ -29,15 +29,19 @@
 
 |
 
-=================
+============
 qa4sm-autoreports
-=================
+============
 
 
     Add a short description here!
 
 
-Preparation
+In order to compile latex to pdf reports, you need to install texlive from
+https://tug.org/texlive/. This should enable the command line program `pdflatex`
+which is called from some python functions in this package.
+
+   sudo apt install texlive-full
 
 pdflatex
 
