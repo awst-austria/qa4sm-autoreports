@@ -336,6 +336,7 @@ class GeographicExtent:
         ax.add_feature(ocean)
         ax.add_feature(cfeature.LAKES, facecolor='#e6f3ff', linewidth=0.5)
         ax.add_feature(cfeature.RIVERS, color='#4da6ff', linewidth=0.4)
+        ax.add_feature(cfeature.COASTLINE, color='black', linewidth=2)
 
         # Add the rectangle with gradient effect
         rectangle = patches.Rectangle(

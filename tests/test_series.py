@@ -55,12 +55,13 @@ class TestSeriesExistingLocal(unittest.TestCase):
                                  p_mask_var='p_R_between_0-ISMN_and_1-C3S_combined',
                                  path_out=out_path)
 
-        assert os.path.isfile(out_path / "tracking_ubRMSD.png")
-        assert os.path.isfile(out_path / "tracking_R.png")
-        assert os.path.isfile(out_path / "data_tracking_ubRMSD.yml")
-        assert os.path.isfile(out_path / "data_tracking_R.yml")
+        assert os.path.isfile(out_path / "tracking_urmsd_between_0-ISMN_and_1-C3S_combined.png")
+        assert os.path.isfile(out_path / "tracking_R_between_0-ISMN_and_1-C3S_combined.png")
+        assert os.path.isfile(out_path / "tracking_urmsd_between_0-ISMN_and_1-C3S_combined.yml")
+        assert os.path.isfile(out_path / "tracking_R_between_0-ISMN_and_1-C3S_combined.yml")
 
-        for yml_file in ["data_tracking_ubRMSD.yml", "data_tracking_R.yml"]:
+        for yml_file in ["tracking_urmsd_between_0-ISMN_and_1-C3S_combined.yml",
+                         "tracking_R_between_0-ISMN_and_1-C3S_combined.yml"]:
             from qa4sm_autoreports.data import Data
             data = Data().from_yml(out_path / yml_file)
             assert 'results' in data.data
@@ -70,7 +71,8 @@ class TestSeriesExistingLocal(unittest.TestCase):
             assert len(data.data['tracking']) > 0
 
         from PIL import Image
-        for png_file in ["tracking_ubRMSD.png", "tracking_R.png"]:
+        for png_file in ["tracking_urmsd_between_0-ISMN_and_1-C3S_combined.png",
+                         "tracking_R_between_0-ISMN_and_1-C3S_combined.png"]:
             img = Image.open(out_path / png_file)
             assert img.size[0] > 0
             assert img.size[1] > 0
@@ -80,17 +82,17 @@ class TestSeriesExistingLocal(unittest.TestCase):
         self.series.track_metric(metric='urmsd_between_0-ISMN_and_1-C3S_combined',
                                  unit='m³m⁻³', ref_epoch=-2, n_epochs=10, path_out=out_path)
 
-        assert os.path.isfile(out_path / "tracking_ubRMSD.png")
-        assert os.path.isfile(out_path / "data_tracking_ubRMSD.yml")
+        assert os.path.isfile(out_path / "tracking_urmsd_between_0-ISMN_and_1-C3S_combined.png")
+        assert os.path.isfile(out_path / "tracking_urmsd_between_0-ISMN_and_1-C3S_combined.yml")
 
         from qa4sm_autoreports.data import Data
-        data = Data().from_yml(out_path / "data_tracking_ubRMSD.yml")
+        data = Data().from_yml(out_path / "tracking_urmsd_between_0-ISMN_and_1-C3S_combined.yml")
         assert 'results' in data.data
         assert 'tracking' in data.data
         assert len(data.data['tracking']) == 1
 
         from PIL import Image
-        img = Image.open(out_path / "tracking_ubRMSD.png")
+        img = Image.open(out_path / "tracking_urmsd_between_0-ISMN_and_1-C3S_combined.png")
         assert img.size[0] > 0
         assert img.size[1] > 0
 

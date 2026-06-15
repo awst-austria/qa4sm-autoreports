@@ -179,13 +179,13 @@ class TestFullReport(unittest.TestCase):
             self.series.track_metric(metric='urmsd_between_0-ISMN_and_1-C3S_combined',
                                      unit='m³m⁻³', ref_epoch=-1, n_epochs=10,
                                      path_out=report_path)
-            assert (report_path / "tracking_ubRMSD.png").is_file()
+            assert (report_path / "tracking_urmsd_between_0-ISMN_and_1-C3S_combined.png").is_file()
 
             self.series.track_metric(metric='R_between_0-ISMN_and_1-C3S_combined',
                                      pretty_name='R', unit='-', ref_epoch=-1, n_epochs=10,
                                      p_mask_var='p_R_between_0-ISMN_and_1-C3S_combined',
                                      path_out=report_path)
-            assert (report_path / "tracking_R.png").is_file()
+            assert (report_path / "tracking_R_between_0-ISMN_and_1-C3S_combined.png").is_file()
 
             self.series[report_name].compile(template_path=self.latex_templ,
                                              tex_ignore=None)

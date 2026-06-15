@@ -27,7 +27,7 @@
 \usepackage{import}  % add to preamble
 \usepackage{placeins}
 \usepackage{subcaption}
-\pagestyle{empty}
+\pagestyle{plain}
 
 \newcommand{\platformversion}{\detokenize{$<ReportVars['Common']['qa4sm_version']>$}}
 \newcommand{\reportfreq}{Blabla}
@@ -69,7 +69,6 @@
     \noindent Test citation in \citet{hersbach2020} and the paper \citep{hersbach2020}.
 
     \begin{table}[h]
-    \label{tab:val_run_list}
     \centering
     \csvreader[
         separator=semicolon,
@@ -78,6 +77,8 @@
         late after last line=\\\bottomrule
     ]{val_run_list.csv}{}%
     { \csvcoli & \csvcolii & \csvcoliii & \csvcoliv }
+    \caption{Validation runs included in this report}  % caption first
+    \label{tab:val_run_list}                           % label after caption
     \end{table}
 
     \clearpage

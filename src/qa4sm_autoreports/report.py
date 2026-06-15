@@ -15,6 +15,7 @@ import yaml
 from pathlib import Path
 import subprocess
 from typing import Union
+import logging
 
 from qa4sm_api.client_api import Connection
 from qa4sm_autoreports.extent import GeographicExtent
@@ -618,6 +619,7 @@ class AutoReportCreator:
                         ) from e
 
             if ret.returncode != 0:
+                logging.info("bibtex stdout: %s", ret.stdout)
                 print("STDOUT:", ret.stdout)
                 print("STDERR:", ret.stderr)
         finally:

@@ -299,7 +299,7 @@ class AutoReportSeries:
         reports = self._select_epochs(list(self.reports.keys()), ref_epoch, n_epochs)
         path_out = path_out or self.series_root / reports[-1] / "tracking"
         os.makedirs(path_out, exist_ok=True)
-        fname = path_out / f"data_tracking_{pretty_name}.yml"
+        fname = path_out / f"tracking_{metric}.yml"
 
         sd = Data().from_yml(fname) if os.path.isfile(fname) else Data()
 
@@ -385,7 +385,7 @@ class AutoReportSeries:
         ax.set_title(f"{pretty_name} tracking")
         ax.set_ylabel(f"{pretty_name} [{unit}]")
 
-        fig.savefig(path_out / f"tracking_{pretty_name}.png",
+        fig.savefig(path_out / f"tracking_{metric}.png",
                     bbox_inches='tight')
 
 
