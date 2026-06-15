@@ -29,10 +29,13 @@
 
 |
 
-============
+=================
 qa4sm-autoreports
-============
+=================
 
+This packages contains the QA4SM Autoreports (automated validation reports)
+application. This is a client application written in python that uses the
+QA4SM public API (access via the python API wrapper package)
 
     Add a short description here!
 

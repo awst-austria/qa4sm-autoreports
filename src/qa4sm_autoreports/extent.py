@@ -293,7 +293,7 @@ class GeographicExtent:
         """Syntactic sugar: ``extent_a | extent_b`` → union."""
         return GeographicExtent.union(self, other)
 
-    def plot_map(self) -> plt.Figure:
+    def plot_map(self, global_map=False) -> plt.Figure:
         """
         Alternative version with higher detail and different styling options.
         """
@@ -305,21 +305,24 @@ class GeographicExtent:
         lon_range = self.max_lon - self.min_lon
         padding = max(lat_range, lon_range) * 0.4
 
-        minlon = self.min_lon - padding
-        if minlon < -180:
-            minlon = -180
-        maxlon = self.max_lon + padding
-        if maxlon > 180:
-            maxlon = 180
-        minlat = self.min_lat - padding
-        if minlat < -90:
-            minlat = -90
-        maxlat = self.max_lat + padding
-        if maxlat > 90:
-            maxlat = 90
+        if global_map:
+            ax.set_global()
+        else:
+            minlon = self.min_lon - padding
+            if minlon < -180:
+                minlon = -180
+            maxlon = self.max_lon + padding
+            if maxlon > 180:
+                maxlon = 180
+            minlat = self.min_lat - padding
+            if minlat < -90:
+                minlat = -90
+            maxlat = self.max_lat + padding
+            if maxlat > 90:
+                maxlat = 90
 
-        ax.set_extent([minlon, maxlon, minlat, maxlat],
-                      crs=ccrs.PlateCarree())
+            ax.set_extent([minlon, maxlon, minlat, maxlat],
+                          crs=ccrs.PlateCarree())
 
         # High quality features
         ax.add_feature(cfeature.COASTLINE, linewidth=1.2, color='black')
