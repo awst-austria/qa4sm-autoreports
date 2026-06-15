@@ -428,7 +428,7 @@ class AutoReportCreator:
             else:
                 common_extent = GeographicExtent.multi_intersection(*extents)
 
-            fig = common_extent.plot_map()
+            fig = common_extent.plot_map(global_map=True)
             fig.savefig(self.report_root / "common_extent.png", bbox_inches='tight')
 
             def all_equal(*extents, tolerance=0.0):

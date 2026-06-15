@@ -393,13 +393,13 @@ class ValidationRun:
         self.connection.download_results(self.remote_id, self.local_root,
                                          force_download=force_download)
 
-    def plot_extent(self):
+    def plot_extent(self, global_map=False):
         """
         Create a map plot of the area covered by the validation run.
         """
         os.makedirs(self.local_root, exist_ok=True)
         path = self.local_root
-        fig = self.extent.plot_map()
+        fig = self.extent.plot_map(global_map)
         fig.savefig(path / "extent.png", bbox_inches='tight')
 
     def delete(self, local=True, remote=True):

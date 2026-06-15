@@ -346,8 +346,8 @@ class GeographicExtent:
             (self.min_lon, self.min_lat),
             self.max_lon - self.min_lon,
             self.max_lat - self.min_lat,
-            linewidth=5, edgecolor='red', facecolor='red',
-            alpha=0.15, transform=ccrs.PlateCarree(), zorder=10,
+            linewidth=0, edgecolor='red', facecolor='red',
+            alpha=0.3, transform=ccrs.PlateCarree(), zorder=10,
             label='Covered Area'
         )
         ax.add_patch(rectangle)

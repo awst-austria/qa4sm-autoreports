@@ -392,46 +392,9 @@ class AutoReportSeries:
 
 
 if __name__ == '__main__':
-
-    config_templ = "/home/wpreimes/shares/home/code/qa4sm-autoreports/tests/testdata/report_config_templates"
-    out_path = Path("/tests/testdata/test_series")
-
-    series = AutoReportSeries(series_root=out_path)
-
-    series.track_metric(metric='urmsd_between_0-ISMN_and_1-C3S_combined',
-                        unit='m³m⁻³', ref_epoch=-1, n_epochs=10)
-
-    series.track_metric(metric='R_between_0-ISMN_and_1-C3S_combined',
-                        pretty_name='R', unit='-', ref_epoch=-1, n_epochs=10,
-                        p_mask_var='p_R_between_0-ISMN_and_1-C3S_combined')
-
-
-
-    # QA4SM_IP_OR_URL = "test.qa4sm.eu"
-    #
-    # for report_name in ["epoch1", "epoch2"]:
-    #
-    #     run_id = series[report_name][0].remote_id
-    #     assert series[report_name].status.lower() == 'collected'
-    #
-    #     assert os.path.isdir(str(out_path / report_name))
-    #     assert os.path.isfile(str(out_path / report_name / "val_run_list.csv"))
-    #     assert os.path.isfile(str(out_path / report_name / "common_extent.png"))
-    #     assert os.path.isfile(str(out_path / report_name / "ReportVars.yml"))
-    #
-    #     assert os.path.isdir(str(out_path / report_name / "run 1 - ismn_c3s"))
-    #     assert len(glob(str(out_path / report_name / "run 1 - ismn_c3s" / "qa4sm_graphics" / "*"))) > 0
-    #     assert len(glob(str(out_path / report_name / "run 1 - ismn_c3s" / "latex" / "*"))) > 0
-    #
-    #     assert os.path.isfile(str(out_path / report_name / "run 1 - ismn_c3s" / f"{run_id}.nc"))
-    #     assert os.path.isfile(str(out_path / report_name / "run 1 - ismn_c3s" / "extent.png"))
-    #     assert os.path.isfile(str(out_path / report_name / "run 1 - ismn_c3s" / "summary_stats.csv"))
-    #     assert os.path.isfile(str(out_path / report_name / "run 1 - ismn_c3s" / f"config-{QA4SM_IP_OR_URL}.json"))
-    #
-    #     config = ValidationConfiguration.from_file(
-    #         out_path / report_name / "run1 - ismn_c3s" / "ContentVars.yml")
-    #
-    #     assert config.data["remote_id"] == run_id
-
+    con = Connection("test.qa4sm.eu")
+    series = AutoReportSeries("/qa4sm/autoreports/results/SMOS_L2_v700",
+                               connection=con)
+    series[0].collect_content()
 
 
