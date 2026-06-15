@@ -189,6 +189,8 @@ class AutoReportSeries:
 
         if override_params is not None:
             report.override_params(**override_params)
+            for run in report.runs.values():
+                run.config.dump(run.local_root / f'config-{instance}.json')
 
         assert report.verify_dataset_availability(), \
             "Dataset availability check failed."

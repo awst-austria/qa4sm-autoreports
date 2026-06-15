@@ -54,7 +54,7 @@ class AutoReportCreator:
         """
         self.report_root = Path(report_root)
         self.name = str(self.report_root.name)
-        self.runs = self._collect_runs(runs) #np.atleast_1d(runs).tolist()  # dtype: List[ValidationRun, ...]
+        self.runs = self._collect_runs(runs)  # dtype: dict[str, ValidationRun]
 
     def _collect_runs(self, runs) -> dict:
         _runs = {}

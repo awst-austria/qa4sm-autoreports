@@ -54,7 +54,7 @@ def report_configs(request):
     return request.param
 
 
-@pytest.mark.integration
+#@pytest.mark.integration
 class TestFullReport(unittest.TestCase):
 
     STORAGE_PATH = Path(tempfile.gettempdir()) / "integration_test_report"
@@ -121,6 +121,10 @@ class TestFullReport(unittest.TestCase):
             else:
                 report = self.series[report_name]
 
+            for run in list(report.runs.values()):
+                assert run.config['interval_from'] == interval_from
+                assert run.config['interval_to'] == interval_to
+
             assert report_name in self.series.reports.keys(), "Report not found"
 
             status_str = report._STATUS_LUT[report.status].lower()
@@ -166,6 +170,9 @@ class TestFullReport(unittest.TestCase):
             config = ValidationConfiguration.from_file(
                 run_path / f"config-{QA4SM.session.instance}.json"
             )
+
+            assert config.data['interval_from'] == override_params['interval_from']
+            assert config.data['interval_to'] == override_params['interval_to']
 
             assert report[0].config == config
 
