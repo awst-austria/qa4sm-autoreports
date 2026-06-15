@@ -53,7 +53,7 @@ jobs:
           QA4SM_INSTANCE: ${{ secrets.QA4SM_INSTANCE }}
           QA4SM_TOKEN: ${{ secrets.QA4SM_TOKEN }}
         run: |
-          # Integration tests trigger runs and send notifications, for now excluded from the CI
+          # Integration tests trigger real runs and send email, for now excluded from the CI, maybe add with a test user
           pytest -m "not integration"
       - name: Export Environment
         shell: bash -l {0}

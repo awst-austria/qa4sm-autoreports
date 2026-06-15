@@ -54,7 +54,7 @@ def report_configs(request):
     return request.param
 
 
-#@pytest.mark.integration
+@pytest.mark.integration
 class TestFullReport(unittest.TestCase):
 
     STORAGE_PATH = Path(tempfile.gettempdir()) / "integration_test_report"
