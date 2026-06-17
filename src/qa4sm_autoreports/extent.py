@@ -22,13 +22,6 @@ class GeographicExtent:
     - Latitude  : -90.0 (South Pole) to +90.0 (North Pole)
     - Longitude : -180.0 (antimeridian west) to +180.0 (antimeridian east)
 
-    Attributes
-    ----------
-    min_lat : float  Southern boundary.
-    min_lon : float  Western boundary.
-    max_lat : float  Northern boundary.
-    max_lon : float  Eastern boundary.
-
     Note
     ----
     Extents that wrap around the antimeridian (e.g. parts of Alaska / Pacific)

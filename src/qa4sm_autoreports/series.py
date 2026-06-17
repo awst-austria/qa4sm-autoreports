@@ -286,8 +286,9 @@ class AutoReportSeries:
         tsw: str, optional
             Temporal sub-window to use (netcdf dimension). Default is "bulk"
         preprocess: Callable, optional
-            Apply to dataset after loading, can be used for e.g. p value masking
-            must take and return a dataset. e.g.
+            Apply to dataset after loading, can be used for e.g. p value masking.
+            Must take and return a dataset. Example::
+
                 lambda ds: ds
         """
         if isinstance(ref_epoch, str):

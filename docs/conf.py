@@ -120,7 +120,7 @@ release = version
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", ".venv"]
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", ".venv", "contributing.rst"]
 
 # The reST default role (used for this markup: `text`) to use for all documents.
 # default_role = None
@@ -153,15 +153,9 @@ todo_emit_warnings = True
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = "alabaster"
+html_theme = "sphinx_rtd_theme"
 
-# Theme options are theme-specific and customize the look and feel of a theme
-# further.  For a list of options available for each theme, see the
-# documentation.
-html_theme_options = {
-    "sidebar_width": "300px",
-    "page_width": "1200px"
-}
+html_theme_options = {}
 
 # Add any paths that contain custom themes here, relative to this directory.
 # html_theme_path = []

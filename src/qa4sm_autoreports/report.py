@@ -224,7 +224,7 @@ class AutoReportCreator:
         report.
 
         Validation run; URL; Reference; Completed
-        \#1; https://test.qa4sm.eu/ui/validation-result/e95eeaeb-1d2f-43c4-b019-b7f3b3dbd29e; ERA5-Land; December 2, 2025
+        #1; https://test.qa4sm.eu/ui/validation-result/e95eeaeb-1d2f-43c4-b019-b7f3b3dbd29e; ERA5-Land; December 2, 2025
 
         Parameters
         ----------
@@ -314,9 +314,10 @@ class AutoReportCreator:
             Delay in seconds between API calls to start a run.
         override: dict, optional (default: None)
             To override certain settings in all validation runs before
-            starting them, pass them here.
-            e.g., {'interval_from': "2023-01-01", 'interval_to': "2023-03-31",
-                   'min_lat': -17.0, 'max_lon': 150.0, ...}
+            starting them, pass them here. Example::
+
+                {'interval_from': "2023-01-01", 'interval_to': "2023-03-31",
+                 'min_lat': -17.0, 'max_lon': 150.0, ...}
         """
         for name, run in self.runs.items():  # type: ValidationRun
             if override is not None:
@@ -516,7 +517,7 @@ class AutoReportCreator:
             bindings from the run and report root.
         placeholder: re.Pattern, optional
             Placeholder pattern to replace in the tex files.
-            the default looks like r`\detokenize{$<...>$}` and contains python
+            the default looks like ``\\detokenize{$<...>$}`` and contains python
             f-strings.
         """
         context = {name: yaml.safe_load(Path(path).read_text())

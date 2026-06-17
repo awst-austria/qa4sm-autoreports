@@ -43,6 +43,22 @@ jobs:
           pip list
           which pip
           which python
+      - name: Install TeX Live (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y texlive-full
+
+      - name: Install TeX Live (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install basictex
+          eval "$(/usr/libexec/path_helper)"
+          sudo tlmgr update --self
+          sudo tlmgr install booktabs csvsimple wrapfig natbib microtype import placeins subcaption
+
+      - name: Install MiKTeX (Windows)
+        if: runner.os == 'Windows'
+        run: choco install miktex --confirm
+
       - name: Install dependencies and package
         shell: bash -l {0}
         run: |
