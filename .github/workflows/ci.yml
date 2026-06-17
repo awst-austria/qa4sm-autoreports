@@ -71,6 +71,13 @@ jobs:
         run: |
           # Integration tests trigger real runs and send email, for now excluded from the CI, maybe add with a test user
           pytest -m "not integration"
+      - name: Upload coverage to Coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          flag-name: py${{ matrix.python-version }}-${{ matrix.os }}
+          parallel: true
+        continue-on-error: true
       - name: Export Environment
         shell: bash -l {0}
         run: |
