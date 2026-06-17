@@ -2,6 +2,7 @@
 
 [![CI](https://img.shields.io/badge/CI-Github%20Actions-success?logo=github-actions)](https://github.com/awst-austria/qa4sm-autoreports/actions)
 [![PyPI](https://img.shields.io/pypi/v/qa4sm-autoreports)](https://pypi.org/project/qa4sm-autoreports/)
+[![Coverage Status](https://coveralls.io/repos/github/awst-austria/qa4sm-autoreports/badge.svg?branch=main)](https://coveralls.io/github/awst-austria/qa4sm-autoreports?branch=main)
 [![Documentation](https://img.shields.io/badge/Docs-GitHub%20Pages-blue?logo=sphinx)](https://awst-austria.github.io/qa4sm-autoreports)
 
 <img src="https://qa4sm.eu/static/images/logo/qa4sm_logo_long.webp" width="25%" alt="QA4SM Logo">
