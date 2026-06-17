@@ -11,7 +11,6 @@ import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 
 
-
 @dataclass(frozen=True)
 class GeographicExtent:
     """
@@ -44,9 +43,11 @@ class GeographicExtent:
         if not (-90.0 <= self.max_lat <= 90.0):
             raise ValueError(f"max_lat {self.max_lat!r} is outside [-90, 90].")
         if not (-180.0 <= self.min_lon <= 180.0):
-            raise ValueError(f"min_lon {self.min_lon!r} is outside [-180, 180].")
+            raise ValueError(
+                f"min_lon {self.min_lon!r} is outside [-180, 180].")
         if not (-180.0 <= self.max_lon <= 180.0):
-            raise ValueError(f"max_lon {self.max_lon!r} is outside [-180, 180].")
+            raise ValueError(
+                f"max_lon {self.max_lon!r} is outside [-180, 180].")
         if self.min_lat > self.max_lat:
             raise ValueError(
                 f"min_lat ({self.min_lat}) must be <= max_lat ({self.max_lat})."
@@ -119,7 +120,9 @@ class GeographicExtent:
     # Comparison
     # ------------------------------------------------------------------
 
-    def equals(self, other: "GeographicExtent", tolerance: float = 0.0) -> bool:
+    def equals(self,
+               other: "GeographicExtent",
+               tolerance: float = 0.0) -> bool:
         """
         Return True when this extent and *other* cover the same region.
 
@@ -140,12 +143,10 @@ class GeographicExtent:
         """
         if not isinstance(other, GeographicExtent):
             return NotImplemented
-        return (
-            abs(self.min_lat - other.min_lat) <= tolerance
-            and abs(self.min_lon - other.min_lon) <= tolerance
-            and abs(self.max_lat - other.max_lat) <= tolerance
-            and abs(self.max_lon - other.max_lon) <= tolerance
-        )
+        return (abs(self.min_lat - other.min_lat) <= tolerance and
+                abs(self.min_lon - other.min_lon) <= tolerance and
+                abs(self.max_lat - other.max_lat) <= tolerance and
+                abs(self.max_lon - other.max_lon) <= tolerance)
 
     # `==` uses the dataclass-generated __eq__ (exact field equality).
     # Use `.equals(other, tolerance=…)` for fuzzy comparison.
@@ -155,21 +156,17 @@ class GeographicExtent:
         Return True if this extent and *other* have any area in common
         (touching edges count as overlapping).
         """
-        return (
-            self.min_lat <= other.max_lat
-            and self.max_lat >= other.min_lat
-            and self.min_lon <= other.max_lon
-            and self.max_lon >= other.min_lon
-        )
+        return (self.min_lat <= other.max_lat and
+                self.max_lat >= other.min_lat and
+                self.min_lon <= other.max_lon and
+                self.max_lon >= other.min_lon)
 
     def contains(self, other: "GeographicExtent") -> bool:
         """Return True if *other* is fully enclosed by this extent."""
-        return (
-            self.min_lat <= other.min_lat
-            and self.max_lat >= other.max_lat
-            and self.min_lon <= other.min_lon
-            and self.max_lon >= other.max_lon
-        )
+        return (self.min_lat <= other.min_lat and
+                self.max_lat >= other.max_lat and
+                self.min_lon <= other.min_lon and
+                self.max_lon >= other.max_lon)
 
     def contains_point(self, lat: float, lon: float) -> bool:
         """Return True if the point (lat, lon) lies within this extent."""
@@ -179,7 +176,8 @@ class GeographicExtent:
     # Intersection
     # ------------------------------------------------------------------
 
-    def intersection(self, other: "GeographicExtent") -> Optional["GeographicExtent"]:
+    def intersection(
+            self, other: "GeographicExtent") -> Optional["GeographicExtent"]:
         """
         Compute the intersection of this extent and *other*.
 
@@ -203,10 +201,12 @@ class GeographicExtent:
         if new_min_lat > new_max_lat or new_min_lon > new_max_lon:
             return None  # No overlap
 
-        return GeographicExtent(new_min_lat, new_min_lon, new_max_lat, new_max_lon)
+        return GeographicExtent(new_min_lat, new_min_lon, new_max_lat,
+                                new_max_lon)
 
     @staticmethod
-    def multi_intersection(*extents: "GeographicExtent") -> Optional["GeographicExtent"]:
+    def multi_intersection(
+            *extents: "GeographicExtent") -> Optional["GeographicExtent"]:
         """
         Compute the common intersection of two or more extents.
 
@@ -266,19 +266,16 @@ class GeographicExtent:
     # Dunder helpers
     # ------------------------------------------------------------------
     def __repr__(self) -> str:
-        return (
-            f"GeographicExtent("
-            f"min_lat={self.min_lat}, min_lon={self.min_lon}, "
-            f"max_lat={self.max_lat}, max_lon={self.max_lon})"
-        )
+        return (f"GeographicExtent("
+                f"min_lat={self.min_lat}, min_lon={self.min_lon}, "
+                f"max_lat={self.max_lat}, max_lon={self.max_lon})")
 
     def __str__(self) -> str:
-        return (
-            f"[{self.min_lat}°, {self.min_lon}°]  →  "
-            f"[{self.max_lat}°, {self.max_lon}°]"
-        )
+        return (f"[{self.min_lat}°, {self.min_lon}°]  →  "
+                f"[{self.max_lat}°, {self.max_lon}°]")
 
-    def __and__(self, other: "GeographicExtent") -> Optional["GeographicExtent"]:
+    def __and__(self,
+                other: "GeographicExtent") -> Optional["GeographicExtent"]:
         """Syntactic sugar: ``extent_a & extent_b`` → intersection."""
         return self.intersection(other)
 
@@ -321,13 +318,17 @@ class GeographicExtent:
         ax.add_feature(cfeature.COASTLINE, linewidth=1.2, color='black')
         ax.add_feature(cfeature.BORDERS, linewidth=0.8, color='darkgray')
         land = cfeature.NaturalEarthFeature(
-            category='physical', name='land',
-            scale='110m', facecolor='#f0f0f0', edgecolor='none'
-        )
+            category='physical',
+            name='land',
+            scale='110m',
+            facecolor='#f0f0f0',
+            edgecolor='none')
         ocean = cfeature.NaturalEarthFeature(
-            category='physical', name='ocean',
-            scale='110m', facecolor='#e6f3ff', edgecolor='none'
-        )
+            category='physical',
+            name='ocean',
+            scale='110m',
+            facecolor='#e6f3ff',
+            edgecolor='none')
         ax.add_feature(land)
         ax.add_feature(ocean)
         ax.add_feature(cfeature.LAKES, facecolor='#e6f3ff', linewidth=0.5)
@@ -335,19 +336,25 @@ class GeographicExtent:
         ax.add_feature(cfeature.COASTLINE, color='black', linewidth=2)
 
         # Add the rectangle with gradient effect
-        rectangle = patches.Rectangle(
-            (self.min_lon, self.min_lat),
-            self.max_lon - self.min_lon,
-            self.max_lat - self.min_lat,
-            linewidth=0, edgecolor='red', facecolor='red',
-            alpha=0.3, transform=ccrs.PlateCarree(), zorder=10,
-            label='Covered Area'
-        )
+        rectangle = patches.Rectangle((self.min_lon, self.min_lat),
+                                      self.max_lon - self.min_lon,
+                                      self.max_lat - self.min_lat,
+                                      linewidth=0,
+                                      edgecolor='red',
+                                      facecolor='red',
+                                      alpha=0.3,
+                                      transform=ccrs.PlateCarree(),
+                                      zorder=10,
+                                      label='Covered Area')
         ax.add_patch(rectangle)
 
         # Enhanced gridlines
-        gl = ax.gridlines(draw_labels=True, linewidth=0.8, color='gray',
-                          alpha=0.6, linestyle=':')
+        gl = ax.gridlines(
+            draw_labels=True,
+            linewidth=0.8,
+            color='gray',
+            alpha=0.6,
+            linestyle=':')
         gl.top_labels = False
         gl.right_labels = False
 

@@ -20,15 +20,15 @@ def escape_latex(value: str) -> str:
     """
     _LATEX_ESCAPE_MAP = [
         ('\\', r'\textbackslash{}'),
-        ('&',  r'\&'),
-        ('%',  r'\%'),
-        ('$',  r'\$'),
-        ('#',  r'\#'),
-        ('_',  r'\_'),
-        ('{',  r'\{'),
-        ('}',  r'\}'),
-        ('~',  r'\textasciitilde{}'),
-        ('^',  r'\textasciicircum{}'),
+        ('&', r'\&'),
+        ('%', r'\%'),
+        ('$', r'\$'),
+        ('#', r'\#'),
+        ('_', r'\_'),
+        ('{', r'\{'),
+        ('}', r'\}'),
+        ('~', r'\textasciitilde{}'),
+        ('^', r'\textasciicircum{}'),
     ]
     for char, replacement in _LATEX_ESCAPE_MAP:
         value = value.replace(char, replacement)
@@ -40,5 +40,3 @@ class ValidationReportError(Exception):
     def __init__(self, message="Validation report failed"):
         self.message = message
         super().__init__(self.message)
-
-

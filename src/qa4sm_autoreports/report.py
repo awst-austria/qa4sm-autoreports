@@ -21,15 +21,9 @@ from qa4sm_api.client_api import Connection
 from qa4sm_autoreports.extent import GeographicExtent
 import qa4sm_autoreports as utils
 from qa4sm_autoreports.run import ValidationRun
-from qa4sm_autoreports.data import (
-    NetcdfMetaData,
-    NetcdfData,
-    SummaryStatsData,
-    ConfigData,
-    RunData,
-    RemoteData,
-    Data
-)
+from qa4sm_autoreports.data import (NetcdfMetaData, NetcdfData,
+                                    SummaryStatsData, ConfigData, RunData,
+                                    RemoteData, Data)
 
 
 class AutoReportCreator:
@@ -69,8 +63,12 @@ class AutoReportCreator:
         return _runs
 
     @classmethod
-    def from_scratch(cls, report_root, templates_path, connection,
-                     run_name_long=False, force=False):
+    def from_scratch(cls,
+                     report_root,
+                     templates_path,
+                     connection,
+                     run_name_long=False,
+                     force=False):
         """
         Set up report creator from scratch, i.e. from template configs.
         If report_root already exists, runs will be loaded from files.
@@ -115,10 +113,10 @@ class AutoReportCreator:
                 name = f"run{i}"
             os.makedirs(str(report_root / name), exist_ok=True)
             instance = connection.session.instance
-            shutil.copy(template, str(report_root / name / f"config-{instance}.json"))
-            run = ValidationRun.from_template(str(report_root / name),
-                                              connection=connection,
-                                              name_tag=name)
+            shutil.copy(template,
+                        str(report_root / name / f"config-{instance}.json"))
+            run = ValidationRun.from_template(
+                str(report_root / name), connection=connection, name_tag=name)
             runs.append(run)
 
         return cls(runs, report_root)
@@ -142,8 +140,8 @@ class AutoReportCreator:
         runs = []
         for local_dir in run_dirs:
             name_tag = os.path.basename(local_dir)
-            run = ValidationRun.from_results(local_dir, connection=connection,
-                                             name_tag=name_tag)
+            run = ValidationRun.from_results(
+                local_dir, connection=connection, name_tag=name_tag)
             runs.append(run)
 
         return cls(runs, report_root)
@@ -174,7 +172,8 @@ class AutoReportCreator:
             status = 2
             if os.path.exists(self.report_root / 'ReportVars.yml'):
                 status = 3
-                pdfs = glob.glob(str(self.report_root / 'pdf_report' / "*.pdf"))
+                pdfs = glob.glob(
+                    str(self.report_root / 'pdf_report' / "*.pdf"))
                 if len(pdfs) > 0:
                     status = 4
 
@@ -247,9 +246,9 @@ class AutoReportCreator:
             name = "\\texttt{" + run.name + "}"
 
             if short_url:
-                url = "\\href{"+url+"}{"+run.remote_id+"}"
+                url = "\\href{" + url + "}{" + run.remote_id + "}"
             else:
-                url = "\\url{"+url+"}"
+                url = "\\url{" + url + "}"
 
             if time['end'] is None:
                 enddate = "not finished"
@@ -387,8 +386,8 @@ class AutoReportCreator:
         if self.validations_complete():
 
             table = self.validation_run_table()
-            table.to_csv(self.report_root / "val_run_list.csv",
-                         sep=';', index=False)
+            table.to_csv(
+                self.report_root / "val_run_list.csv", sep=';', index=False)
 
             for i, run in enumerate(list(self.runs.values()), start=1):
                 # Download all required data from server
@@ -414,14 +413,15 @@ class AutoReportCreator:
                 all_vars.append(service_data)
 
                 sum_data = SummaryStatsData(run).collect()
-                os.makedirs(os.path.join(run.local_root, 'latex'), exist_ok=True)
+                os.makedirs(
+                    os.path.join(run.local_root, 'latex'), exist_ok=True)
                 sum_data.export_table(
                     os.path.join(run.local_root, 'latex', 'summary_stats.csv'))
                 all_vars.append(sum_data)
 
-                all_vars.dump(os.path.join(run.local_root, 'ContentVars.yml'),
-                              overwrite=True)
-
+                all_vars.dump(
+                    os.path.join(run.local_root, 'ContentVars.yml'),
+                    overwrite=True)
 
             extents = [r.extent for _, r in self.runs.items()]
             if len(extents) == 1:
@@ -430,29 +430,43 @@ class AutoReportCreator:
                 common_extent = GeographicExtent.multi_intersection(*extents)
 
             fig = common_extent.plot_map(global_map=True)
-            fig.savefig(self.report_root / "common_extent.png", bbox_inches='tight')
+            fig.savefig(
+                self.report_root / "common_extent.png", bbox_inches='tight')
 
             def all_equal(*extents, tolerance=0.0):
-                return all(extents[0].equals(e, tolerance) for e in extents[1:])
+                return all(
+                    extents[0].equals(e, tolerance) for e in extents[1:])
+
             extents_equal = all_equal(*extents)
             # ----------------------------------
             # Common, non-run-specific variables
             report_data = {
-                'compilation_date': datetime.now().strftime("%Y-%m-%d %H:%M"),
-                'qa4sm_version': all_vars.data["NetcdfMetaVars"]["qa4sm_version"],
-                'qa4sm_url': list(self.runs.values())[-1].connection.session.base_url,
-                'interval_days': all_vars.data["ConfigVars"]["interval_days"],
-                'interval_from': all_vars.data["ConfigVars"]["interval_from"],
-                'interval_to': all_vars.data["ConfigVars"]["interval_to"],
-                'count_runs': len(self.runs),
-                'extents_equal': extents_equal,
-                'common_area': [common_extent.min_lat, common_extent.min_lon,
-                                common_extent.max_lat, common_extent.max_lon]
+                'compilation_date':
+                    datetime.now().strftime("%Y-%m-%d %H:%M"),
+                'qa4sm_version':
+                    all_vars.data["NetcdfMetaVars"]["qa4sm_version"],
+                'qa4sm_url':
+                    list(self.runs.values())[-1].connection.session.base_url,
+                'interval_days':
+                    all_vars.data["ConfigVars"]["interval_days"],
+                'interval_from':
+                    all_vars.data["ConfigVars"]["interval_from"],
+                'interval_to':
+                    all_vars.data["ConfigVars"]["interval_to"],
+                'count_runs':
+                    len(self.runs),
+                'extents_equal':
+                    extents_equal,
+                'common_area': [
+                    common_extent.min_lat, common_extent.min_lon,
+                    common_extent.max_lat, common_extent.max_lon
+                ]
             }
             common_data = Data()
             common_data.add(report_data, section='Common')
-            common_data.dump(os.path.join(self.report_root, 'ReportVars.yml'),
-                             overwrite=True)
+            common_data.dump(
+                os.path.join(self.report_root, 'ReportVars.yml'),
+                overwrite=True)
         else:
             self._warn_incomplete()
 
@@ -470,8 +484,9 @@ class AutoReportCreator:
             if expr[i] == '[' and i + 1 < len(expr) and expr[i + 1] == "'":
                 j = i + 2
                 while j < len(expr):
-                    if expr[j] == "'" and j + 1 < len(expr) and expr[j + 1] == ']':
-                        key = expr[i + 2: j]
+                    if expr[j] == "'" and j + 1 < len(expr) and expr[j +
+                                                                     1] == ']':
+                        key = expr[i + 2:j]
                         delim = '"' if "'" in key else "'"
                         out.append(f"[{delim}{key}{delim}]")
                         i = j + 2
@@ -485,8 +500,11 @@ class AutoReportCreator:
                 i += 1
         return "".join(out)
 
-    def _replacer(self, context: dict,
-                  FMT_RE=re.compile(r"^(.*):([0-9+\- #]*\.?[0-9]*[bcdeEfFgGnosxX%])$")):
+    def _replacer(
+        self,
+        context: dict,
+        FMT_RE=re.compile(r"^(.*):([0-9+\- #]*\.?[0-9]*[bcdeEfFgGnosxX%])$")):
+
         def replace(m: re.Match) -> str:
             expr = self._fix_apostrophe_keys(m.group(1))
             fmt = FMT_RE.match(expr)
@@ -496,12 +514,12 @@ class AutoReportCreator:
         return replace
 
     def populate_latex(
-            self,
-            template_file: str or Path,
-            out_file: str or Path,
-            yaml_bindings: dict,
-            placeholder=re.compile(r"(?:\\detokenize\{)?\$<(.+?)>\$(?:\})?"),
-        ) -> None:
+        self,
+        template_file: str or Path,
+        out_file: str or Path,
+        yaml_bindings: dict,
+        placeholder=re.compile(r"(?:\\detokenize\{)?\$<(.+?)>\$(?:\})?"),
+    ) -> None:
         """
         Populate run latex file with run data.
 
@@ -520,8 +538,10 @@ class AutoReportCreator:
             the default looks like ``\\detokenize{$<...>$}`` and contains python
             f-strings.
         """
-        context = {name: yaml.safe_load(Path(path).read_text())
-                   for name, path in yaml_bindings.items()}
+        context = {
+            name: yaml.safe_load(Path(path).read_text())
+            for name, path in yaml_bindings.items()
+        }
         context["np"] = np
         context["utils"] = utils
         replacer = self._replacer(context)
@@ -529,7 +549,8 @@ class AutoReportCreator:
         tex = placeholder.sub(replacer, tex)
         Path(out_file).write_text(tex, encoding="utf-8")
 
-    def compile(self, template_path,
+    def compile(self,
+                template_path,
                 main_tex="main.tex",
                 run_tex='run.tex',
                 tex_ignore=None,
@@ -562,28 +583,24 @@ class AutoReportCreator:
             if os.path.isfile(full_path):
                 shutil.copy2(full_path, self.report_root)
 
-        yaml_bindings = {
-            "ReportVars": self.report_root / "ReportVars.yml"
-        }
+        yaml_bindings = {"ReportVars": self.report_root / "ReportVars.yml"}
 
         for i, run in enumerate(list(self.runs.values()), start=1):
-            yaml_bindings[f"Run{i}ContentVars"] = run.local_root / "ContentVars.yml"
+            yaml_bindings[
+                f"Run{i}ContentVars"] = run.local_root / "ContentVars.yml"
 
         for f in glob.glob(str(template_path / "*.tex")):
             name = os.path.basename(f)
             if (name == run_tex) or (name in tex_ignore):
                 continue
             #out_name = name.replace('template_', '')
-            self.populate_latex(f,
-                                self.report_root / name,
-                                yaml_bindings)
+            self.populate_latex(f, self.report_root / name, yaml_bindings)
 
         for i, run in enumerate(list(self.runs.values()), start=1):
             yaml_bindings["ContentVars"] = run.local_root / "ContentVars.yml"
             #print(run.local_root)
             self.populate_latex(template_path / run_tex,
-                                run.local_root / run_tex,
-                                yaml_bindings)
+                                run.local_root / run_tex, yaml_bindings)
 
         os.makedirs(str(self.report_root / "pdf_report"), exist_ok=True)
 
@@ -592,9 +609,11 @@ class AutoReportCreator:
                 try:
                     ret = subprocess.run(
                         ["pdflatex", "-interaction=nonstopmode", main_tex],
-                        capture_output=True, text=True, check=True,
-                        cwd=str(self.report_root), timeout=100
-                    )
+                        capture_output=True,
+                        text=True,
+                        check=True,
+                        cwd=str(self.report_root),
+                        timeout=100)
                 except subprocess.TimeoutExpired as e:
                     raise RuntimeError(
                         f"pdflatex timed out on run {i + 1} — likely caused by interactive error prompts. "
@@ -602,18 +621,23 @@ class AutoReportCreator:
                     ) from e
 
                 if "! " in ret.stdout:
-                    errors = [line for line in ret.stdout.splitlines() if line.startswith("! ")]
+                    errors = [
+                        line for line in ret.stdout.splitlines()
+                        if line.startswith("! ")
+                    ]
                     raise RuntimeError(
-                        f"pdflatex failed on run {i + 1} with errors:\n" + "\n".join(errors)
-                    )
+                        f"pdflatex failed on run {i + 1} with errors:\n" +
+                        "\n".join(errors))
 
                 if i == 0:
                     try:
                         subprocess.run(
                             ["bibtex", main_tex.replace('.tex', '')],
-                            capture_output=True, text=True, check=True,
-                            cwd=str(self.report_root), timeout=100
-                        )
+                            capture_output=True,
+                            text=True,
+                            check=True,
+                            cwd=str(self.report_root),
+                            timeout=100)
                     except subprocess.TimeoutExpired as e:
                         raise RuntimeError(
                             f"bibtex timed out — likely caused by interactive error prompts."
@@ -627,61 +651,11 @@ class AutoReportCreator:
             # Move the output files to pdf_report (always runs, even on failure)
             pdf_out_dir = self.report_root / "pdf_report"
             os.makedirs(str(pdf_out_dir), exist_ok=True)
-            for ext in ['pdf', 'log', 'aux', 'out', 'tex', 'bib', 'bbl', 'blg']:
+            for ext in [
+                    'pdf', 'log', 'aux', 'out', 'tex', 'bib', 'bbl', 'blg'
+            ]:
                 src = glob.glob(str(self.report_root / f"*.{ext}"))
                 for f in src:
                     if os.path.exists(f):
-                        shutil.move(str(f), str(pdf_out_dir / os.path.basename(f)))
-
-
-if __name__ == '__main__':
-    QA4SM_IP_OR_URL = "test.qa4sm.eu"
-    QA4SM_API_TOKEN = "2b37740a1f6733c9cfc2e1e105abe974ff8c4204"
-
-    qa4sm = Connection(QA4SM_IP_OR_URL, QA4SM_API_TOKEN)
-
-    template_path = "/qa4sm_autoreports/pipelines/configs/smos_l2_v700"
-    creator = AutoReportCreator.from_scratch(
-        "/data-read/USERS/wpreimes/qa4sm_smos_report/20220701_20220930",
-                  template_path, connection=qa4sm
-    )
-
-    # creator.start_all_runs(override={'interval_from': '2020-01-01',
-    #                                  'interval_to': '2020-01-31'})
-
-    creator.validations_complete()
-    creator.collect_content()
-    creator.validation_run_table()
-
-
-
-
-
-
-
-    series_root = Path("/data-read/USERS/wpreimes/qa4sm_smos_report/20220701_20220930")
-
-    name1 = "01-SmosL2-vs-C3sComb-abs"
-    id1 = "6eb61199-59b8-4ecc-8e3c-7b1139df4a05"
-    path1 = series_root / "01-SmosL2-vs-C3sComb-abs"
-
-    name2 = "02-SmosL2-vs-Era5Land-abs"
-    id2 = "e95eeaeb-1d2f-43c4-b019-b7f3b3dbd29e"
-    path2 = series_root / "02-SmosL2-vs-Era5Land-abs"
-
-    run1 = ValidationRun.from_remote(path1, connection=qa4sm,
-                remote_id="6eb61199-59b8-4ecc-8e3c-7b1139df4a05")
-
-    run2 = ValidationRun.from_remote(path2, connection=qa4sm,
-                remote_id="e95eeaeb-1d2f-43c4-b019-b7f3b3dbd29e")
-
-    report = AutoReportCreator([run1, run2], series_root)
-
-    report.compile(
-        "/home/wpreimes/shares/home/code/qa4sm-autoreports/src/qa4sm_autoreports/pipelines/configs/smos_l2_v700/latex_template/src",
-    )
-
-    # run = ValidationRun(config, connection=qa4sm, root_local="/tmp/test_run",
-    #                     name='mytestrun') src/qa4sm_autoreports/pipelines/configs/smos_l2_v700/latex_template/src
-    # assert run.verify_period(), "Data is not available"
-    # run.start()
+                        shutil.move(
+                            str(f), str(pdf_out_dir / os.path.basename(f)))

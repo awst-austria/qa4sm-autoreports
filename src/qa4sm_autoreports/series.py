@@ -16,6 +16,7 @@ from qa4sm_api.client_api import Connection
 
 
 class AutoReportSeries:
+
     def __init__(self, series_root, reports=None, connection=None):
         """
         Cross-report collection with the same validation settings, datasets,
@@ -129,9 +130,7 @@ class AutoReportSeries:
     def _load_by_name(self, name):
         # (Re)load a single report by name from the list
         r = AutoReportCreator.from_results(
-            report_root=self.series_root / name,
-            connection=self.connection
-        )
+            report_root=self.series_root / name, connection=self.connection)
 
         self.reports[r.name] = r
 
@@ -154,8 +153,12 @@ class AutoReportSeries:
 
         return bool(np.all(s))
 
-    def new_report(self, report_name, config_template_path,
-                   override_params=None, instance="qa4sm.eu", token=None):
+    def new_report(self,
+                   report_name,
+                   config_template_path,
+                   override_params=None,
+                   instance="qa4sm.eu",
+                   token=None):
         """
         Start a new validation report from config templates on the chosen
         instance, download and collect all results.
@@ -184,7 +187,8 @@ class AutoReportSeries:
             connection = Connection(instance=instance, token=token)
 
         report = AutoReportCreator.from_scratch(
-            self.series_root / report_name, config_template_path,
+            self.series_root / report_name,
+            config_template_path,
             connection=connection)
 
         if override_params is not None:
@@ -235,8 +239,9 @@ class AutoReportSeries:
             ending at and including the reference epoch.
         """
         ref_idx = ref_epoch if ref_epoch >= 0 else len(epochs) + ref_epoch
-        start_idx = max(0, ref_idx - (n_epoch - 1))  # -1 because ref counts as one
-        return epochs[start_idx: ref_idx + 1]
+        start_idx = max(0, ref_idx -
+                        (n_epoch - 1))  # -1 because ref counts as one
+        return epochs[start_idx:ref_idx + 1]
 
     def track_metric(self,
                      metric,
@@ -294,7 +299,8 @@ class AutoReportSeries:
         if isinstance(ref_epoch, str):
             ref_epoch = list(self.reports.keys()).index(ref_epoch)
 
-        reports = self._select_epochs(list(self.reports.keys()), ref_epoch, n_epochs)
+        reports = self._select_epochs(
+            list(self.reports.keys()), ref_epoch, n_epochs)
         path_out = path_out or self.series_root / reports[-1] / "tracking"
         os.makedirs(path_out, exist_ok=True)
         fname = path_out / f"tracking_{metric}.yml"
@@ -319,9 +325,16 @@ class AutoReportSeries:
             if dat is None:
                 raise KeyError(f"Metric {metric} not found in any run nc.")
 
-            stats = {'q5': np.nan, 'q25': np.nan, 'q50': np.nan,
-                     'q75': np.nan, 'q95': np.nan,
-                     'mean': np.nan, 'std': np.nan, 'n': np.nan}
+            stats = {
+                'q5': np.nan,
+                'q25': np.nan,
+                'q50': np.nan,
+                'q75': np.nan,
+                'q95': np.nan,
+                'mean': np.nan,
+                'std': np.nan,
+                'n': np.nan
+            }
 
             ser = dat.to_pandas()
             if p_mask_var is not None:
@@ -345,9 +358,7 @@ class AutoReportSeries:
             all_stats[report] = stats
         ##
 
-        other_stats = {
-            'tracking_status': 'green'
-        }
+        other_stats = {'tracking_status': 'green'}
 
         sd.add(other_stats, section='results')
         sd.add(all_stats, section='tracking')
@@ -383,16 +394,4 @@ class AutoReportSeries:
         ax.set_title(f"{pretty_name} tracking")
         ax.set_ylabel(f"{pretty_name} [{unit}]")
 
-        fig.savefig(path_out / f"tracking_{metric}.png",
-                    bbox_inches='tight')
-
-
-
-
-if __name__ == '__main__':
-    con = Connection("test.qa4sm.eu")
-    series = AutoReportSeries("/qa4sm/autoreports/results/SMOS_L2_v700",
-                               connection=con)
-    series[0].collect_content()
-
-
+        fig.savefig(path_out / f"tracking_{metric}.png", bbox_inches='tight')

@@ -10,14 +10,12 @@ from typing import Union
 import xarray as xr
 from pathlib import Path
 
-from qa4sm_autoreports.run import (
-    ValidationRun, ValidationConfiguration
-)
-
+from qa4sm_autoreports.run import (ValidationRun, ValidationConfiguration)
 """
 Containers for various types of data from QA4SM (e.g. stats, results, config,
 ...). Each container comes with a function to collect the required data.
 """
+
 
 def load_yml_to_dict(filepath: str | Path) -> dict:
     """
@@ -53,6 +51,7 @@ class Data:
     """
     Data container base class for variables from various sources
     """
+
     def __init__(self, data=None):
         if data is None:
             self.data = self._reset()
@@ -143,6 +142,7 @@ class RunData(Data):
     """
     Collection of data from multiple validation runs for a report
     """
+
     def __init__(self, validation_run: ValidationRun):
         self.run = validation_run
         super(RunData, self).__init__()
@@ -152,6 +152,7 @@ class RemoteData(RunData):
     """
     Collect variables from service API sources
     """
+
     def __init__(self, validation_run: ValidationRun):
         super().__init__(validation_run)
 
@@ -189,17 +190,19 @@ class SummaryStatsData(RunData):
     """
     Collect variables from the csv summary stats file of the validation run
     """
+
     def __init__(self, validation_run: ValidationRun):
         self.unit_sep = "  in"
         super().__init__(validation_run)
 
     def _load_sum_stats(self, drop_unit=False) -> pd.DataFrame:
-        df = pd.read_csv(self.run.local_root / 'summary_stats.csv',
-                         index_col=0)
+        df = pd.read_csv(
+            self.run.local_root / 'summary_stats.csv', index_col=0)
         # get rid of unit from table:
         if drop_unit:
-            new_index = [i.split(self.unit_sep)[0].strip()
-                         for i in df.index.values]
+            new_index = [
+                i.split(self.unit_sep)[0].strip() for i in df.index.values
+            ]
             df.index = new_index
 
         df.index = [i.strip() for i in df.index]
@@ -249,6 +252,7 @@ class NetcdfData(RunData):
     """
     Collect variables from the results netcdf file
     """
+
     def __init__(self, validation_run: ValidationRun):
         super().__init__(validation_run)
 
@@ -264,13 +268,20 @@ class NetcdfData(RunData):
         for var in list(ds.variables.keys()):
             if var.startswith("status_"):
                 n_status_points.append(int(len(ds[var].values.flatten())))
-                n_status_ok.append(int(len(ds[var].values[ds[var].values.flatten()
-                                           == status_code_ok])))
+                n_status_ok.append(
+                    int(
+                        len(ds[var].values[ds[var].values.flatten() ==
+                                           status_code_ok])))
 
         data = {
-            'n_gpis': int(n_gpis),
-            'n_status': n_status_points,
-            'percent_ok': [int((o / s) * 100) for o, s in zip(n_status_ok, n_status_points)]
+            'n_gpis':
+                int(n_gpis),
+            'n_status':
+                n_status_points,
+            'percent_ok': [
+                int((o / s) * 100)
+                for o, s in zip(n_status_ok, n_status_points)
+            ]
         }
 
         return data
@@ -285,6 +296,7 @@ class NetcdfMetaData(RunData):
     """
     Collect meta variables from the results netcdf file
     """
+
     def __init__(self, validation_run: ValidationRun):
         super().__init__(validation_run)
 
@@ -305,6 +317,7 @@ class ConfigData(RunData):
     """
     Collect variables from the validation run config
     """
+
     def __init__(self, validation_run: ValidationRun):
         super().__init__(validation_run)
         c = glob.glob(os.path.join(self.run.local_root, f"config-*.json"))[0]
@@ -408,4 +421,3 @@ class ConfigData(RunData):
         self.add(run_vars, "ConfigVars")
 
         return self
-

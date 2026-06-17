@@ -16,13 +16,14 @@ from qa4sm_autoreports.extent import GeographicExtent
 
 
 class ValidationRun:
+
     def __init__(
-            self,
-            config: ValidationConfiguration,
-            root_local: Union[str, Path],
-            connection: Connection,
-            remote_id=None,
-            name_tag=None,
+        self,
+        config: ValidationConfiguration,
+        root_local: Union[str, Path],
+        connection: Connection,
+        remote_id=None,
+        name_tag=None,
     ):
         """
         Parameters
@@ -46,13 +47,11 @@ class ValidationRun:
         self.name = self.update_name(name_tag or self.config['name_tag'])
 
     def __repr__(self):
-        return (
-            f"ValidationRun [{self.status[0]}]\n"
-            f"  - name:       {self.name}\n"
-            f"  - remote_id:  {self.remote_id}\n"
-            f"  - local_root: {self.local_root}\n"
-            f"  - connection: {self.connection}\n"
-        )
+        return (f"ValidationRun [{self.status[0]}]\n"
+                f"  - name:       {self.name}\n"
+                f"  - remote_id:  {self.remote_id}\n"
+                f"  - local_root: {self.local_root}\n"
+                f"  - connection: {self.connection}\n")
 
     @classmethod
     def from_remote(cls, local_root: Union[str, Path], connection: Connection,
@@ -83,8 +82,10 @@ class ValidationRun:
         return cls(config, local_root, connection, remote_id)
 
     @classmethod
-    def from_template(cls, local_dir: Union[str, Path],
-                      connection: Connection, name_tag=None):
+    def from_template(cls,
+                      local_dir: Union[str, Path],
+                      connection: Connection,
+                      name_tag=None):
         """
         Set up ValidationRun based on a previously synchronized, now local, run.
 
@@ -114,13 +115,18 @@ class ValidationRun:
 
         name_tag = name_tag or os.path.dirname(local_dir)
 
-        return cls(config, root_local=local_dir,
-                   connection=connection, remote_id=None,
-                   name_tag=name_tag)
+        return cls(
+            config,
+            root_local=local_dir,
+            connection=connection,
+            remote_id=None,
+            name_tag=name_tag)
 
     @classmethod
-    def from_results(cls, local_dir: Union[str, Path],
-                     connection: Connection = None, name_tag=None):
+    def from_results(cls,
+                     local_dir: Union[str, Path],
+                     connection: Connection = None,
+                     name_tag=None):
         """
         Set up ValidationRun based on a previously synchronized, now local, run.
         Uses: run_id, instance url from response/results files to restore a
@@ -148,7 +154,8 @@ class ValidationRun:
             f"No unique config file found in {local_dir}"
         conf_file = conf_file[0]
 
-        instance = os.path.basename(conf_file).split('-')[1].replace('.json', '')
+        instance = os.path.basename(conf_file).split('-')[1].replace(
+            '.json', '')
 
         config = ValidationConfiguration.from_file(conf_file)
 
@@ -173,9 +180,12 @@ class ValidationRun:
 
         name_tag = name_tag or os.path.dirname(local_dir)
 
-        return cls(config, root_local=local_dir,
-                   connection=connection, remote_id=remote_id,
-                   name_tag=name_tag)
+        return cls(
+            config,
+            root_local=local_dir,
+            connection=connection,
+            remote_id=remote_id,
+            name_tag=name_tag)
 
     def __eq__(self, other) -> bool:
         return self.remote_id == other.remote_id
@@ -201,7 +211,8 @@ class ValidationRun:
         if self.remote_id is None:
             return None
         else:
-            return self.connection.url(f"validation-configuration/{self.remote_id}")
+            return self.connection.url(
+                f"validation-configuration/{self.remote_id}")
 
     @property
     def status(self) -> Tuple[str, int]:
@@ -266,7 +277,8 @@ class ValidationRun:
                 variable = int(conf['variable_id'])
                 dataset = self.connection.dataset_info(dataset)['pretty_name']
                 version = self.connection.version_info(version)['pretty_name']
-                variable = self.connection.variable_info(variable)['pretty_name']
+                variable = self.connection.variable_info(
+                    variable)['pretty_name']
                 return str(dataset), str(version), str(variable)
 
         return None, None, None
@@ -390,8 +402,8 @@ class ValidationRun:
         os.makedirs(self.local_root, exist_ok=True)
         self.config.dump(self.local_root /
                          f'config-{self.connection.session.instance}.json')
-        self.connection.download_results(self.remote_id, self.local_root,
-                                         force_download=force_download)
+        self.connection.download_results(
+            self.remote_id, self.local_root, force_download=force_download)
 
     def plot_extent(self, global_map=False):
         """
@@ -418,16 +430,3 @@ class ValidationRun:
                 shutil.rmtree(self.local_root)
         if remote:
             self.connection.delete(self.remote_id)
-
-
-
-if __name__ == '__main__':
-    QA4SM_IP_OR_URL = "test.qa4sm.eu"
-    QA4SM_API_TOKEN = "2b37740a1f6733c9cfc2e1e105abe974ff8c4204"
-    qa4sm = Connection(QA4SM_IP_OR_URL, QA4SM_API_TOKEN)
-    name1 = "test"
-    id1 = "e1b0bc31-9a12-4528-8885-85bad6cfbff6"
-    run = ValidationRun.from_remote('/tmp/test', qa4sm, id1)
-    run.download_data()
-    run.delete(False)
-
