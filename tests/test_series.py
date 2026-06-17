@@ -10,9 +10,10 @@ matplotlib.use('Agg')
 
 from qa4sm_api.client_api import Connection
 from qa4sm_autoreports.series import AutoReportSeries
+from qa4sm_autoreports.data import Data
 
 RUN_ID = "6eb61199-59b8-4ecc-8e3c-7b1139df4a05"
-QA4SM = Connection("test.qa4sm.eu")
+QA4SM = Connection(os.environ.get('QA4SM_INSTANCE', "test.qa4sm.eu"))
 TEST_PATH = Path(os.path.dirname(os.path.abspath(__file__)))
 
 
@@ -62,7 +63,6 @@ class TestSeriesExistingLocal(unittest.TestCase):
 
         for yml_file in ["tracking_urmsd_between_0-ISMN_and_1-C3S_combined.yml",
                          "tracking_R_between_0-ISMN_and_1-C3S_combined.yml"]:
-            from qa4sm_autoreports.data import Data
             data = Data().from_yml(out_path / yml_file)
             assert 'results' in data.data
             assert 'tracking' in data.data
@@ -85,7 +85,6 @@ class TestSeriesExistingLocal(unittest.TestCase):
         assert os.path.isfile(out_path / "tracking_urmsd_between_0-ISMN_and_1-C3S_combined.png")
         assert os.path.isfile(out_path / "tracking_urmsd_between_0-ISMN_and_1-C3S_combined.yml")
 
-        from qa4sm_autoreports.data import Data
         data = Data().from_yml(out_path / "tracking_urmsd_between_0-ISMN_and_1-C3S_combined.yml")
         assert 'results' in data.data
         assert 'tracking' in data.data

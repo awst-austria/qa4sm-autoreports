@@ -18,7 +18,7 @@ This test triggers validation runs for multiple epochs, downloads results,
 and generates reports from them.
 """
 
-QA4SM = Connection(os.environ.get('QA4SM_INSTANCE'), "test.qa4sm.eu")
+QA4SM = Connection(os.environ.get('QA4SM_INSTANCE', "test.qa4sm.eu"))
 
 @pytest.fixture(scope="module")
 def qa4sm_connection():
