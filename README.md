@@ -4,7 +4,7 @@
 [![PyPI](https://img.shields.io/pypi/v/qa4sm-autoreports)](https://pypi.org/project/qa4sm-autoreports/)
 [![Documentation](https://img.shields.io/badge/Docs-GitHub%20Pages-blue?logo=sphinx)](https://awst-austria.github.io/qa4sm-autoreports)
 
-![QA4SM Logo](https://qa4sm.eu/static/images/logo/qa4sm_logo_long.webp)
+<img src="https://qa4sm.eu/static/images/logo/qa4sm_logo_long.webp" width="25%" alt="QA4SM Logo">
 
 This packages contains the python code to programmatically create validation
 reports using QA4SM (automated validation reports).
