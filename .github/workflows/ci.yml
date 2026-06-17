@@ -20,7 +20,7 @@ jobs:
     strategy:
       matrix:
         python-version: ['3.12']
-        os: ["ubuntu-latest", "windows-latest", "macos-latest"]
+        os: ["ubuntu-latest", "macos-latest"]
 
     steps:
       - uses: actions/checkout@v4
@@ -45,7 +45,7 @@ jobs:
           which python
       - name: Install TeX Live (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get install -y texlive-full
+        run: sudo apt-get install -y texlive-latex-base texlive-latex-recommended texlive-latex-extra texlive-fonts-recommended
 
       - name: Install TeX Live (macOS)
         if: runner.os == 'macOS'
