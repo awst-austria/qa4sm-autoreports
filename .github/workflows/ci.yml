@@ -52,6 +52,7 @@ jobs:
         run: |
           brew install basictex
           eval "$(/usr/libexec/path_helper)"
+          sudo tlmgr option repository https://mirror.ctan.org/systems/texlive/tlnet
           sudo tlmgr update --self
           sudo tlmgr install booktabs csvsimple wrapfig natbib microtype import placeins caption
 
