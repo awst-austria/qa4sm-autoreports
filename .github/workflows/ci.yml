@@ -53,7 +53,7 @@ jobs:
           brew install basictex
           eval "$(/usr/libexec/path_helper)"
           sudo tlmgr update --self
-          sudo tlmgr install booktabs csvsimple wrapfig natbib microtype import placeins subcaption
+          sudo tlmgr install booktabs csvsimple wrapfig natbib microtype import placeins caption
 
       - name: Install MiKTeX (Windows)
         if: runner.os == 'Windows'
