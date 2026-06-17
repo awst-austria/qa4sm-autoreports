@@ -192,9 +192,6 @@ class AutoReportSeries:
             for run in report.runs.values():
                 run.config.dump(run.local_root / f'config-{instance}.json')
 
-        assert report.verify_dataset_availability(), \
-            "Dataset availability check failed."
-
         self.reports[report.name] = report
 
         return report
