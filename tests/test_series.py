@@ -3,8 +3,8 @@ import os.path
 import unittest
 import shutil
 from pathlib import Path
-from unittest.mock import Mock, patch
 from tempfile import mkdtemp
+from PIL import Image
 import matplotlib
 matplotlib.use('Agg')
 
@@ -22,10 +22,11 @@ class TestSeriesExistingLocal(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tempdir = mkdtemp()
-        with patch('qa4sm_autoreports.run.Connection') as mock_connection:
-            mock_conn_instance = Mock()
-            mock_connection.return_value = mock_conn_instance
-            cls.series = AutoReportSeries(TEST_PATH / 'testdata' / 'test_series')
+        # with patch('qa4sm_autoreports.run.Connection') as mock_connection:
+        #     mock_conn_instance = Mock()
+        #     mock_connection.return_value = mock_conn_instance
+        cls.series = AutoReportSeries(TEST_PATH / 'testdata' / 'test_series',
+                                      connection=None)
 
     @classmethod
     def tearDownClass(cls):
@@ -64,13 +65,12 @@ class TestSeriesExistingLocal(unittest.TestCase):
         for yml_file in ["tracking_urmsd_between_0-ISMN_and_1-C3S_combined.yml",
                          "tracking_R_between_0-ISMN_and_1-C3S_combined.yml"]:
             data = Data().from_yml(out_path / yml_file)
-            assert 'results' in data.data
+            assert 'series' in data.data
             assert 'tracking' in data.data
-            assert 'tracking_status' in data.data['results']
-            assert data.data['results']['tracking_status'] == 'green'
+            assert 'tracking_status' in data.data['tracking']
+            assert data.data['tracking']['tracking_status'] == 'ok'
             assert len(data.data['tracking']) > 0
 
-        from PIL import Image
         for png_file in ["tracking_urmsd_between_0-ISMN_and_1-C3S_combined.png",
                          "tracking_R_between_0-ISMN_and_1-C3S_combined.png"]:
             img = Image.open(out_path / png_file)
@@ -86,7 +86,7 @@ class TestSeriesExistingLocal(unittest.TestCase):
         assert os.path.isfile(out_path / "tracking_urmsd_between_0-ISMN_and_1-C3S_combined.yml")
 
         data = Data().from_yml(out_path / "tracking_urmsd_between_0-ISMN_and_1-C3S_combined.yml")
-        assert 'results' in data.data
+        assert 'series' in data.data
         assert 'tracking' in data.data
         assert len(data.data['tracking']) == 1
 
@@ -143,8 +143,7 @@ class TestSeriesScratch(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    testcase = TestSeriesScratch()
+    testcase = TestSeriesExistingLocal()
     testcase.setUpClass()
     testcase.setUp()
-    testcase.test_new_report()
-    testcase.test_delete_report()
+    testcase.test_track_metrics_ubrmsd_and_r()

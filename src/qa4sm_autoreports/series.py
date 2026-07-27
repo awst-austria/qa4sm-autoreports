@@ -9,6 +9,8 @@ from typing import Union
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
+from scipy import stats
+import matplotlib.transforms as transforms
 
 from qa4sm_autoreports.data import Data
 from qa4sm_autoreports.report import AutoReportCreator
@@ -250,10 +252,12 @@ class AutoReportSeries:
                      run=None,
                      path_out=None,
                      pretty_name='ubRMSD',
+                     corridor_alpha=0.05,
                      unit='m³m⁻³',
                      p_mask_var=None,
                      p_mask_thres=0.05,
                      tsw='bulk',
+                     series_tracking_stats_csv_table=True,
                      preprocess=None):
         """
         Create metric tracking data and plot
@@ -280,6 +284,9 @@ class AutoReportSeries:
             in the folder of the reference epoch.
         pretty_name: str, optional
             Display name of the metric, e.g. ubRMSD
+        corridor_alpha: int, optional
+            Percentile above/below which a median is considered outside the expected
+            interval. Passing None means to not use the corridors.
         unit: str, optional
             Pretty unit, no brackets, e.g m³m⁻³
         p_mask_var: str, optional
@@ -290,6 +297,9 @@ class AutoReportSeries:
             is passed.
         tsw: str, optional
             Temporal sub-window to use (netcdf dimension). Default is "bulk"
+        series_tracking_stats_csv_table: bool, optional
+            Create a .csv table containing the tracking stats that can also
+            be imported in Latex.
         preprocess: Callable, optional
             Apply to dataset after loading, can be used for e.g. p value masking.
             Must take and return a dataset. Example::
@@ -307,7 +317,7 @@ class AutoReportSeries:
 
         sd = Data().from_yml(fname) if os.path.isfile(fname) else Data()
 
-        all_stats = {}
+        series_stats = {}
         for report in reports:
             ds = self.reports[report].open_datasets()
             dat = None
@@ -325,7 +335,7 @@ class AutoReportSeries:
             if dat is None:
                 raise KeyError(f"Metric {metric} not found in any run nc.")
 
-            stats = {
+            box_stats = {
                 'q5': np.nan,
                 'q25': np.nan,
                 'q50': np.nan,
@@ -342,30 +352,30 @@ class AutoReportSeries:
 
             ser = ser[metric].dropna()
 
-            stats['n'] = len(ser.values)
-            for q in ['q25', 'q50', 'q75']:
+            box_stats['n'] = len(ser.values)
+            for q in ['q5', 'q25', 'q50', 'q75', 'q95']:
                 try:
                     quant = float(ser.quantile(float(q[1:]) / 100))
-                    stats[q] = quant
+                    box_stats[q] = quant
                 except Exception:
                     warnings.warn(f"Quantile {q} could not be computed.")
             try:
-                stats['mean'] = float(ser.mean())
-                stats['std'] = float(ser.std())
+                box_stats['mean'] = float(ser.mean())
+                box_stats['std'] = float(ser.std())
             except Exception:
                 warnings.warn("Mean could not be computed.")
 
-            all_stats[report] = stats
+            series_stats[report] = box_stats
         ##
+        sd.data['series'] = series_stats
+        sd.data['tracking'] = {'tracking_status': 'none'}
 
-        other_stats = {'tracking_status': 'green'}
+        df = pd.DataFrame.from_dict(sd.data['series'])
 
-        sd.add(other_stats, section='results')
-        sd.add(all_stats, section='tracking')
-
-        sd.dump(fname, overwrite=True)
-
-        df = pd.DataFrame.from_dict(sd.data['tracking'])
+        if series_tracking_stats_csv_table:
+            _df = pd.DataFrame.from_dict(series_stats).T
+            _df["n"] = _df["n"].astype(int)
+            _df.to_csv(path_out / f"stats_{metric}.csv", sep=';', float_format="%.2f")
 
         bxpstats = []
 
@@ -385,13 +395,48 @@ class AutoReportSeries:
                 'fliers': [],
             })
 
-        fig, ax = plt.subplots(figsize=(6, 4))
+
+        fig, ax = plt.subplots(figsize=(int(n_epochs/2), 4))
 
         positions = np.arange(len(names)) + 1  # 1-based positions
         ax.bxp(bxpstats, positions=positions, showfliers=False)
         ax.set_xticks(positions)
-        ax.set_xticklabels(names, rotation=90, ha='center')
+        ax.set_xticklabels(names, rotation=90, ha='center', fontweight="normal")
+        ax.get_xticklabels()[-1].set_fontweight("bold")
         ax.set_title(f"{pretty_name} tracking")
         ax.set_ylabel(f"{pretty_name} [{unit}]")
 
+        trans = transforms.blended_transform_factory(ax.transData, ax.transAxes)
+        for pos, name in zip(positions, names):
+            if name is not None:
+                n = df.loc["n", name]
+                label = f"n={int(n)}" if np.isfinite(n) else "n=0"
+            else:
+                label = "n=0"
+            ax.text(pos+0.29, -0.25, label, transform=trans,
+                    ha='center', va='bottom', fontsize=7, rotation=90)
+
+        meds = np.array([b['med'] for b in bxpstats])
+
+        if corridor_alpha is not None:
+            current_med = meds[-1]
+            mu, sigma = stats.norm.fit(meds[:-1][np.isfinite(meds[:-1])])  # exclude the current one
+            if np.isnan(current_med) or np.isnan(mu) or np.isnan(sigma):
+                pass  # can't track
+            else:
+                percentile_upper = stats.norm.ppf(1-corridor_alpha, loc=mu, scale=sigma)
+                percentile_lower = stats.norm.ppf(corridor_alpha, loc=mu, scale=sigma)
+                if (current_med > percentile_upper) or (current_med < percentile_lower):
+                    sd.data['tracking']['tracking_status'] = "not ok"
+                else:
+                    sd.data['tracking']['tracking_status'] = "ok"
+
+                color = "green" if sd.data['tracking']['tracking_status'] == 'ok' else "red"
+                ax.axhspan(percentile_lower, percentile_upper, alpha=0.2,
+                           color=color, zorder=0, label=f"Expected median range")
+                ax.get_xticklabels()[-1].set_color(color)  # change color of last box label accordingly
+
+
+        ax.legend()
         fig.savefig(path_out / f"tracking_{metric}.png", bbox_inches='tight')
+        sd.dump(fname, overwrite=True)

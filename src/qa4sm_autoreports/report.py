@@ -16,6 +16,7 @@ from pathlib import Path
 import subprocess
 from typing import Union
 import logging
+import builtins
 
 from qa4sm_api.client_api import Connection
 from qa4sm_autoreports.extent import GeographicExtent
@@ -24,6 +25,7 @@ from qa4sm_autoreports.run import ValidationRun
 from qa4sm_autoreports.data import (NetcdfMetaData, NetcdfData,
                                     SummaryStatsData, ConfigData, RunData,
                                     RemoteData, Data)
+import qa4sm_autoreports
 
 
 class AutoReportCreator:
@@ -373,12 +375,16 @@ class AutoReportCreator:
         if os.path.exists(self.report_root):
             shutil.rmtree(self.report_root)
 
-    def collect_content(self, force_download=False):
+    def collect_content(self,
+                        report_data=None,
+                        force_download=False):
         """
         Collect all content variables for a given run. Write to single file.
 
         Parameters
         ----------
+        report_data: dict[str, str]
+            Initial variables to add to the report data
         force_download: bool, optional (default: False)
             Always download new results. If this is False, only download
             results if the don't yet exist.
@@ -440,11 +446,14 @@ class AutoReportCreator:
             extents_equal = all_equal(*extents)
             # ----------------------------------
             # Common, non-run-specific variables
-            report_data = {
+            report_data = report_data or {}
+            report_data.update({
                 'compilation_date':
                     datetime.now().strftime("%Y-%m-%d %H:%M"),
                 'qa4sm_version':
                     all_vars.data["NetcdfMetaVars"]["qa4sm_version"],
+                'qa4sm_autoreports_version':
+                    qa4sm_autoreports.__version__,
                 'qa4sm_url':
                     list(self.runs.values())[-1].connection.session.base_url,
                 'interval_days':
@@ -461,7 +470,7 @@ class AutoReportCreator:
                     common_extent.min_lat, common_extent.min_lon,
                     common_extent.max_lat, common_extent.max_lon
                 ]
-            }
+            })
             common_data = Data()
             common_data.add(report_data, section='Common')
             common_data.dump(
@@ -508,8 +517,8 @@ class AutoReportCreator:
         def replace(m: re.Match) -> str:
             expr = self._fix_apostrophe_keys(m.group(1))
             fmt = FMT_RE.match(expr)
-            return format(eval(fmt.group(1), {"__builtins__": {}}, context), fmt.group(2)) \
-                if fmt else str(eval(expr, {"__builtins__": {}}, context))
+            return format(eval(fmt.group(1), {}, context), fmt.group(2)) \
+                if fmt else str(eval(expr, {}, context))
 
         return replace
 
@@ -553,8 +562,7 @@ class AutoReportCreator:
                 template_path,
                 main_tex="main.tex",
                 run_tex='run.tex',
-                tex_ignore=None,
-                from_scratch=False):
+                tex_ignore=None):
         """
         Collect contents to compile PDF report from templates.
 
@@ -568,12 +576,14 @@ class AutoReportCreator:
             Tex file template to use for runs (have separate yml bindings).
         tex_ignore: list, optional
             A list of tex files in the template path to ignore
-        from_scratch: bool, optional
-            Download and collect data, even if it already exists.
         """
         tex_ignore = tex_ignore or []
 
-        self.collect_content(from_scratch)  # todo: include!
+        if self.status < 3:
+            raise ValueError("Before compiling the reports, call "
+                             "`collect_content()`")
+        # self.collect_content(report_data=report_data,
+        #                      force_download=from_scratch)  # todo: include!
         template_path = Path(template_path)
 
         for file in os.listdir(template_path):
