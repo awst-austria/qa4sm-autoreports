@@ -230,6 +230,24 @@ class ValidationRun:
             s = ("unknown", 0)
         return s
 
+    def move(self, dest: Union[str, Path]):
+        """
+        Move the local run data to a different directory, i.e., change
+        `self.local_root`.
+
+        Parameters
+        ----------
+        dest: Path or str
+            Destination path. Will be created if it doesn't yet exist.
+        """
+        dest = Path(dest)
+        if dest.exists():
+            raise ValueError(f"{dest} already exists.")
+
+        new_path = dest
+        shutil.move(self.local_root, new_path)
+        self.local_root = new_path
+
     def open_dataset(self) -> xr.Dataset:
         """
         Read local netcdf data as xarray Dataset

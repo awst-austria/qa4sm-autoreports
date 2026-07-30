@@ -3,6 +3,7 @@ import pandas as pd
 import unittest
 from datetime import datetime
 from pathlib import Path
+import tempfile
 from tempfile import mkdtemp
 
 from qa4sm_api.client_api import Connection
@@ -102,7 +103,7 @@ class TestReportExistingRemote(unittest.TestCase):
     def test_pdf_report_from_results(self):
         # Check whether creating a report
         self.report.download_all_results()
-        self.report.collect_content(report_data={'added_during_collection': 'test123'})
+        self.report.collect_content(report_variables={'added_during_collection': 'test123'})
         self.report.compile(TEST_PATH / "latex_templates",
                             tex_ignore=["tracking.tex"])
         path = self.report.report_root
@@ -112,6 +113,22 @@ class TestReportExistingRemote(unittest.TestCase):
         assert os.path.exists(path / "pdf_report" / "main.tex")
         assert os.path.exists(path / "run1" / "run.tex")
         assert os.path.exists(path / "run2" / "run.tex")
+
+    def test_restructure_runs(self):
+        self.report.download_all_results()
+        old_path_1 = self.report[0].local_root
+        old_path_2 = self.report[1].local_root
+        assert old_path_1.exists()
+        assert old_path_2.exists()
+
+        self.report.restructure_runs({'Run1 - SMOS L2 vs C3S SM': 'new_run_1',
+                                      1: 'new_run_2'})
+        assert not old_path_1.exists()
+        assert not old_path_2.exists()
+        assert self.report[0].local_root.name == "new_run_1"
+        assert self.report[1].local_root.name == "new_run_2"
+        assert len(os.listdir(self.report[0].local_root)) > 0
+
 
 
 if __name__ == '__main__':

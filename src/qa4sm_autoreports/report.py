@@ -138,7 +138,8 @@ class AutoReportCreator:
         """
         report_root = Path(report_root)
 
-        run_dirs = glob.glob(str(report_root / 'run*'))
+        run_dirs = [g for g in sorted(glob.glob(str(report_root / '*')))
+                    if cls.is_run_dir(Path(g))]
         runs = []
         for local_dir in run_dirs:
             name_tag = os.path.basename(local_dir)
@@ -147,6 +148,12 @@ class AutoReportCreator:
             runs.append(run)
 
         return cls(runs, report_root)
+
+    @staticmethod
+    def is_run_dir(n: Path):
+        # Run dir contains a config file
+        return (os.path.isdir(n) and
+                (len(glob.glob(str(n / "config-*.json"))) > 0))
 
     @property
     def status(self) -> int:
@@ -212,6 +219,22 @@ class AutoReportCreator:
     def _warn_incomplete():
         warnings.warn("Skipping content collection as some runs are "
                       "incomplete.")
+
+    def restructure_runs(self, mapper: dict, rename_runs=False):
+        """
+        Update the names and local folders of runs in this report.
+
+        Parameters
+        ----------
+        mapper: dict[str, str]
+            Old -> New . String mapper between the old and new name.
+            Old can also be the old index.
+        rename_runs: bool, optional
+            Also change the name of the runs accordingly
+        """
+        for k, v in mapper.items():
+            self[k].move(self[k].local_root.parent / v)
+            self[k].update_name(v)
 
     def open_datasets(self) -> dict:
         datasets = {}
@@ -376,6 +399,7 @@ class AutoReportCreator:
             shutil.rmtree(self.report_root)
 
     def collect_content(self,
+                        report_variables=None,
                         report_data=None,
                         force_download=False):
         """
@@ -383,8 +407,11 @@ class AutoReportCreator:
 
         Parameters
         ----------
-        report_data: dict[str, str]
+        report_variables: dict[str, str]
             Initial variables to add to the report data
+        report_data: dict[str, str]
+            Section name and path to yml file
+            To add all variables from a yaml file
         force_download: bool, optional (default: False)
             Always download new results. If this is False, only download
             results if the don't yet exist.
@@ -446,8 +473,7 @@ class AutoReportCreator:
             extents_equal = all_equal(*extents)
             # ----------------------------------
             # Common, non-run-specific variables
-            report_data = report_data or {}
-            report_data.update({
+            _common_data = {
                 'compilation_date':
                     datetime.now().strftime("%Y-%m-%d %H:%M"),
                 'qa4sm_version':
@@ -466,13 +492,23 @@ class AutoReportCreator:
                     len(self.runs),
                 'extents_equal':
                     extents_equal,
-                'common_area': [
-                    common_extent.min_lat, common_extent.min_lon,
-                    common_extent.max_lat, common_extent.max_lon
-                ]
-            })
+                'common_area': {
+                    'min_lat': common_extent.min_lat,
+                    'min_lon': common_extent.min_lon,
+                    'max_lat': common_extent.max_lat,
+                    'max_lon': common_extent.max_lon,
+                }
+            }
+            # Add custom variables to common data
+            report_variables = report_variables or {}
+            _common_data.update(report_variables)
+
             common_data = Data()
-            common_data.add(report_data, section='Common')
+            common_data.add(_common_data, section='Common')
+            if report_data is not None:
+                for k, v in report_data.items():
+                    common_data.add(v, section=k)
+
             common_data.dump(
                 os.path.join(self.report_root, 'ReportVars.yml'),
                 overwrite=True)
@@ -572,18 +608,32 @@ class AutoReportCreator:
             Path where the templates latex files are stored.
         main_tex: str, optional
             Main tex file
-        run_tex: str, optional
+        run_tex: str or list[str], optional
             Tex file template to use for runs (have separate yml bindings).
+            - If a single file name is passed, it will be applied to all runs.
+            - If a list of files is passed, it will be applied to the available
+            runs in order (must be the same number of files as runs). To skip
+            a run, pass None in the list.
         tex_ignore: list, optional
             A list of tex files in the template path to ignore
         """
         tex_ignore = tex_ignore or []
 
+        if isinstance(run_tex, str):
+            run_tex = [run_tex] * len(self.runs)
+
+        if len(run_tex) != len(self.runs):
+            raise ValueError("run_tex must be the same length as number of "
+                             "runs.")
+
+        if not os.path.exists(os.path.join(template_path, main_tex)):
+            raise IOError(f"The file {main_tex} does not exist in the passed"
+                          f" template path.")
+
         if self.status < 3:
             raise ValueError("Before compiling the reports, call "
                              "`collect_content()`")
-        # self.collect_content(report_data=report_data,
-        #                      force_download=from_scratch)  # todo: include!
+
         template_path = Path(template_path)
 
         for file in os.listdir(template_path):
@@ -601,16 +651,17 @@ class AutoReportCreator:
 
         for f in glob.glob(str(template_path / "*.tex")):
             name = os.path.basename(f)
-            if (name == run_tex) or (name in tex_ignore):
+            if (name in run_tex) or (name in tex_ignore):
                 continue
             #out_name = name.replace('template_', '')
             self.populate_latex(f, self.report_root / name, yaml_bindings)
 
-        for i, run in enumerate(list(self.runs.values()), start=1):
+        for i, run in enumerate(list(self.runs.values())):
+            if run_tex[i] is None:
+                continue
             yaml_bindings["ContentVars"] = run.local_root / "ContentVars.yml"
-            #print(run.local_root)
-            self.populate_latex(template_path / run_tex,
-                                run.local_root / run_tex, yaml_bindings)
+            self.populate_latex(template_path / run_tex[i],
+                                run.local_root / run_tex[i], yaml_bindings)
 
         os.makedirs(str(self.report_root / "pdf_report"), exist_ok=True)
 

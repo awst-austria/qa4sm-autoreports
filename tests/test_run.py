@@ -1,7 +1,9 @@
 import os.path
+import tempfile
 import unittest
 import shutil
 from datetime import datetime
+from pathlib import Path
 from qa4sm_api.client_api import Connection
 from qa4sm_autoreports.run import ValidationRun
 from tempfile import mkdtemp
@@ -75,6 +77,20 @@ class TestRunFromRemote(unittest.TestCase):
     def test_status(self):
         status, percent = self.valrun.status
         assert (status.upper() == 'DONE') & (percent == 100)
+
+    def test_move(self):
+        old_path = self.valrun.local_root
+        assert len(os.listdir(old_path)) > 0
+        with tempfile.TemporaryDirectory() as new_path:
+            new_path = Path(new_path)
+            os.rmdir(new_path)
+            self.valrun.move(new_path)
+            assert self.valrun.local_root == new_path
+            assert not old_path.exists()
+            assert len(os.listdir(new_path)) > 0
+            self.valrun.move(old_path)
+            assert not new_path.exists()
+            assert len(os.listdir(old_path)) > 0
 
 
 class TestRunFromLocal(TestRunFromRemote):

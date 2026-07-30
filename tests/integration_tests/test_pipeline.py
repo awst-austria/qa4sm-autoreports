@@ -188,7 +188,7 @@ class TestFullReport(unittest.TestCase):
             assert (report_path / "tracking_R_between_0-ISMN_and_1-C3S_combined.png").is_file()
 
             self.series[report_name].collect_content(
-                report_data={'added_during_collection': 'test123'},
+                report_variables={'added_during_collection': 'test123'},
             )
 
             self.series[report_name].compile(template_path=self.latex_templ,

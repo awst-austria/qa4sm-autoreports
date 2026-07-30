@@ -368,7 +368,7 @@ class AutoReportSeries:
             series_stats[report] = box_stats
         ##
         sd.data['series'] = series_stats
-        sd.data['tracking'] = {'tracking_status': 'none'}
+        sd.data['tracking'] = {'tracking_status': 'none', 'tracking_color': 'gray'}
 
         df = pd.DataFrame.from_dict(sd.data['series'])
 
@@ -413,8 +413,8 @@ class AutoReportSeries:
                 label = f"n={int(n)}" if np.isfinite(n) else "n=0"
             else:
                 label = "n=0"
-            ax.text(pos+0.29, -0.25, label, transform=trans,
-                    ha='center', va='bottom', fontsize=7, rotation=90)
+            ax.text(pos+0.29, -0.03, label, transform=trans,
+                    ha='center', va='top', fontsize=7, rotation=90)
 
         meds = np.array([b['med'] for b in bxpstats])
 
@@ -428,15 +428,17 @@ class AutoReportSeries:
                 percentile_lower = stats.norm.ppf(corridor_alpha, loc=mu, scale=sigma)
                 if (current_med > percentile_upper) or (current_med < percentile_lower):
                     sd.data['tracking']['tracking_status'] = "not ok"
+                    sd.data['tracking']['tracking_color'] = "red"
                 else:
                     sd.data['tracking']['tracking_status'] = "ok"
+                    sd.data['tracking']['tracking_color'] = "green"
 
                 color = "green" if sd.data['tracking']['tracking_status'] == 'ok' else "red"
+                # change color of last box label and the area accordingly
                 ax.axhspan(percentile_lower, percentile_upper, alpha=0.2,
                            color=color, zorder=0, label=f"Expected median range")
-                ax.get_xticklabels()[-1].set_color(color)  # change color of last box label accordingly
+                ax.get_xticklabels()[-1].set_color(color)
+                ax.legend()
 
-
-        ax.legend()
         fig.savefig(path_out / f"tracking_{metric}.png", bbox_inches='tight')
         sd.dump(fname, overwrite=True)

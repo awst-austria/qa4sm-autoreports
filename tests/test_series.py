@@ -88,7 +88,7 @@ class TestSeriesExistingLocal(unittest.TestCase):
         data = Data().from_yml(out_path / "tracking_urmsd_between_0-ISMN_and_1-C3S_combined.yml")
         assert 'series' in data.data
         assert 'tracking' in data.data
-        assert len(data.data['tracking']) == 1
+        assert len(data.data['tracking']) == 2
 
         from PIL import Image
         img = Image.open(out_path / "tracking_urmsd_between_0-ISMN_and_1-C3S_combined.png")
