@@ -33,6 +33,7 @@ dependencies = [
     "cartopy",
     "xarray",
     "netCDF4",
+    "scipy"
 ]
 dynamic = ["version"]
 
