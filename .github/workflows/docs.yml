@@ -41,6 +41,8 @@ jobs:
         with:
           path: ./docs/_build/html
   deploy:
+    # Only main is allowed to deploy to github-pages; skip on PRs instead of failing
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
