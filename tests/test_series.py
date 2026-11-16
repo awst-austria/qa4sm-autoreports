@@ -5,6 +5,8 @@ import shutil
 from pathlib import Path
 from tempfile import mkdtemp
 from PIL import Image
+import numpy as np
+import xarray as xr
 import matplotlib
 matplotlib.use('Agg')
 
@@ -68,8 +70,13 @@ class TestSeriesExistingLocal(unittest.TestCase):
             assert 'series' in data.data
             assert 'tracking' in data.data
             assert 'tracking_status' in data.data['tracking']
-            assert data.data['tracking']['tracking_status'] == 'ok'
-            assert len(data.data['tracking']) > 0
+            # Only one previous report -> not enough history for a status
+            assert data.data['tracking']['tracking_status'] == 'none'
+            assert data.data['tracking']['n_history'] == 1
+            assert data.data['tracking']['previous_report'] == 'epoch1'
+            # both epochs contain the same locations -> can be paired
+            assert data.data['tracking']['paired_previous']['n_common'] > 0
+            assert isinstance(data.data['tracking']['summary'], str)
 
         for png_file in ["tracking_urmsd_between_0-ISMN_and_1-C3S_combined.png",
                          "tracking_R_between_0-ISMN_and_1-C3S_combined.png"]:
@@ -88,12 +95,32 @@ class TestSeriesExistingLocal(unittest.TestCase):
         data = Data().from_yml(out_path / "tracking_urmsd_between_0-ISMN_and_1-C3S_combined.yml")
         assert 'series' in data.data
         assert 'tracking' in data.data
-        assert len(data.data['tracking']) == 2
+        assert data.data['tracking']['tracking_status'] == 'none'
+        assert data.data['tracking']['tracking_color'] == 'gray'
+        assert data.data['tracking']['n_history'] == 0
+        assert data.data['tracking']['previous_report'] is None
 
         from PIL import Image
         img = Image.open(out_path / "tracking_urmsd_between_0-ISMN_and_1-C3S_combined.png")
         assert img.size[0] > 0
         assert img.size[1] > 0
+
+    def test_track_coverage(self):
+        out_path = Path(self.tempdir)
+        metric = 'urmsd_between_0-ISMN_and_1-C3S_combined'
+        self.series.track_coverage(metrics={'ISMN': metric, 'missing': 'R_not_there'},
+                                   ref_epoch=-1, n_epochs=10, path_out=out_path)
+        assert os.path.isfile(out_path / "coverage.png")
+        assert os.path.isfile(out_path / "stats_coverage.csv")
+        data = Data().from_yml(out_path / "coverage.yml")
+        cur = data.data['coverage']['datasets']['ISMN']
+        assert cur['current'] > 0
+        assert cur['current'] <= cur['current_total']
+        assert cur['previous_report'] == 'epoch1'
+        assert cur['change'] == cur['current'] - cur['previous']
+        # metric that does not exist in any report
+        assert data.data['coverage']['datasets']['missing']['current'] is None
+        assert isinstance(data.data['coverage']['summary'], str)
 
     def test_select_epochs(self):
         epochs = ['epoch1', 'epoch2', 'epoch3', 'epoch4', 'epoch5']
@@ -103,6 +130,93 @@ class TestSeriesExistingLocal(unittest.TestCase):
         assert result == ['epoch1']
         result = AutoReportSeries._select_epochs(epochs, ref_epoch=-2, n_epoch=4)
         assert result == ['epoch1', 'epoch2', 'epoch3', 'epoch4']
+
+    def test_label_helpers(self):
+        assert AutoReportSeries._epoch_label('2026-02-28') == '2026-02'
+        assert AutoReportSeries._epoch_label(
+            '2025-12-01_to_2026-02-28') == '2026-02'
+        assert AutoReportSeries._epoch_label('epoch1') == 'epoch1'
+        assert AutoReportSeries._pretty_pair(
+            'R_between_0-SMOS_L2_and_1-ERA5_LAND') == 'SMOS L2 vs. ERA5 LAND'
+        assert AutoReportSeries._pretty_pair('n_obs') == 'n_obs'
+
+
+class _FakeReport:
+    def __init__(self, ds):
+        self.ds = ds
+
+    def open_datasets(self):
+        return {'run1': self.ds} if self.ds is not None else {}
+
+
+def _fake_ds(values, metric='R_between_0-ISMN_and_1-C3S'):
+    # 2 tsw so that the tsw selection is tested as well
+    n = len(values)
+    vals = np.stack([np.asarray(values, dtype=float), np.full(n, -99.)], axis=1)
+    return xr.Dataset(
+        {metric: (('loc', 'tsw'), vals),
+         'lat': ('loc', np.arange(n, dtype=float)),
+         'lon': ('loc', np.zeros(n))},
+        coords={'tsw': ['bulk', 'other']})
+
+
+class TestTrackMetricSynthetic(unittest.TestCase):
+    """
+    Synthetic monthly series (in memory) to test the expected range
+    classification, the year-over-year comparison and missing reports.
+    """
+    metric = 'R_between_0-ISMN_and_1-C3S'
+
+    def setUp(self):
+        self.tempdir = Path(mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.tempdir)
+
+    def _series(self, last_values):
+        rng = np.random.default_rng(42)
+        names = [f"2026-0{m}-01" for m in range(1, 7)]
+        datasets = [_fake_ds(0.5 + rng.normal(0, 0.01, 10)) for _ in range(5)]
+        datasets[4] = None  # metric missing in the report before the current
+        datasets.append(_fake_ds(last_values))
+        series = AutoReportSeries.__new__(AutoReportSeries)
+        series.series_root = self.tempdir
+        series.reports = {n: _FakeReport(d) for n, d in zip(names, datasets)}
+        return series
+
+    def _track(self, series):
+        with self.assertWarns(UserWarning):  # missing report
+            sd = series.track_metric(self.metric, pretty_name='R', unit='-',
+                                     n_epochs=6, min_history=3, yoy_offset=4,
+                                     path_out=self.tempdir)
+        return sd.data
+
+    def test_track_metric_classification(self):
+        # current report as before -> ok
+        data = self._track(self._series(np.full(10, 0.5)))
+        t = data['tracking']
+        assert t['tracking_status'] == 'ok'
+        assert t['n_history'] == 4
+        assert t['expected_lower'] < 0.5 < t['expected_upper']
+        assert data['series']['2026-05-01']['n'] == 0
+        # previous valid report is used, missing one skipped
+        assert t['previous_report'] == '2026-04-01'
+        assert t['paired_previous']['n_common'] == 10
+        assert t['paired_yoy']['report'] == '2026-02-01'
+        assert t['paired_yoy']['median_diff'] is not None
+        assert 'within the expected range' in t['summary']
+        assert 'one year before' in t['summary']
+
+        # strong drop -> not ok, paired difference reflects the drop
+        data = self._track(self._series(np.full(10, 0.2)))
+        t = data['tracking']
+        assert t['tracking_status'] == 'not ok'
+        assert t['tracking_color'] == 'red'
+        assert abs(t['paired_previous']['median_diff'] + 0.3) < 0.05
+        assert 'OUTSIDE' in t['summary']
+        assert os.path.isfile(self.tempdir / f"tracking_{self.metric}.png")
+        csv = (self.tempdir / f"stats_{self.metric}.csv").read_text()
+        assert '2026-06' in csv
 
 
 class TestSeriesScratch(unittest.TestCase):

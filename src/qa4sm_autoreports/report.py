@@ -103,7 +103,9 @@ class AutoReportCreator:
 
         os.makedirs(str(report_root))
 
-        templates = glob.glob(str(template_path / '*.json'))
+        # Sorted, so that run numbering follows the template file names
+        # (e.g. 01_*.json -> run1) and not the (arbitrary) file system order.
+        templates = sorted(glob.glob(str(template_path / '*.json')))
         if len(templates) == 0:
             raise FileNotFoundError(f"No templates found in {template_path}")
         runs = []

@@ -15,6 +15,41 @@ QA4SM = Connection("test.qa4sm.eu")
 TEST_PATH = Path(os.path.dirname(os.path.abspath(__file__)))
 
 
+def test_netcdf_network_stats():
+    import numpy as np
+    import xarray as xr
+    from types import SimpleNamespace
+    from qa4sm_autoreports.data import NetcdfData
+
+    tmp = Path(mkdtemp())
+    try:
+        # 3 sensors in 2 networks, 2 temporal sub-windows (bulk is used)
+        ds = xr.Dataset(
+            {'network': ('loc', ['A', 'A', 'B']),
+             'gpi': ('loc', [1, 2, 3]),
+             'status_between_0-ISMN_and_1-C3S': (('loc', 'tsw'),
+                                                 [[0, 0], [1, 0], [0, 0]]),
+             'R_between_0-ISMN_and_1-C3S': (('loc', 'tsw'),
+                                            [[0.4, 9], [0.6, 9], [0.8, 9]])},
+            coords={'tsw': ['bulk', 'other']})
+        ds.to_netcdf(tmp / 'rid.nc')
+        nc = NetcdfData.__new__(NetcdfData)
+        nc.run = SimpleNamespace(local_root=tmp, remote_id='rid')
+
+        data = nc.collect_content()
+        assert data['n_status'] == [6]
+        assert data['n_ok'] == [5]
+        assert data['n_failed'] == [1]
+        nets = {n['network']: n for n in data['networks']}
+        assert nets['A'] == {'network': 'A', 'n_sensors': 2, 'n_ok': 1,
+                             'median_R': 0.5}
+        assert nets['B']['median_R'] == 0.8
+        assert data['networks'][0]['network'] == 'A'  # most sensors first
+        assert os.path.isfile(tmp / 'latex' / 'network_stats.csv')
+    finally:
+        shutil.rmtree(tmp)
+
+
 class TestReportCompilerLocal(unittest.TestCase):
 
     def setUp(self):

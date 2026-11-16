@@ -4,6 +4,7 @@
 
 import glob
 import os
+import numpy as np
 import pandas as pd
 import yaml
 from typing import Union
@@ -269,22 +270,80 @@ class NetcdfData(RunData):
             if var.startswith("status_"):
                 n_status_points.append(int(len(ds[var].values.flatten())))
                 n_status_ok.append(
-                    int(
-                        len(ds[var].values[ds[var].values.flatten() ==
-                                           status_code_ok])))
+                    int(np.sum(ds[var].values.flatten() == status_code_ok)))
 
         data = {
             'n_gpis':
                 int(n_gpis),
             'n_status':
                 n_status_points,
+            'n_ok':
+                n_status_ok,
+            'n_failed': [
+                int(s - o) for o, s in zip(n_status_ok, n_status_points)
+            ],
             'percent_ok': [
                 int((o / s) * 100)
                 for o, s in zip(n_status_ok, n_status_points)
             ]
         }
 
+        if 'network' in ds.variables:
+            data['networks'] = self._network_stats(ds)
+
         return data
+
+    @staticmethod
+    def _first_var(ds: xr.Dataset, prefix: str) -> Union[str, None]:
+        # First variable in the dataset whose name starts with prefix
+        for var in ds.data_vars:
+            if str(var).startswith(prefix):
+                return str(var)
+        return None
+
+    def _network_stats(self, ds: xr.Dataset) -> list:
+        """
+        Per-network summary for in situ (ISMN) validation runs: number of
+        sensors, successful validations and median R / ubRMSD.
+        The table is also exported to latex/network_stats.csv
+        """
+        if 'tsw' in ds.dims:
+            # one value per sensor: use the bulk (full period) results
+            ds = ds.sel(tsw='bulk') if 'bulk' in ds['tsw'].values \
+                else ds.isel(tsw=0)
+        status_var = self._first_var(ds, 'status_')
+        cols = {'network': ds['network'].values}
+        if status_var is not None:
+            cols['ok'] = ds[status_var].values.flatten() == 0
+        for name, prefix in [('R', 'R_between_'), ('urmsd', 'urmsd_between_')]:
+            var = self._first_var(ds, prefix)
+            if var is not None:
+                cols[name] = ds[var].values.flatten()
+        df = pd.DataFrame(cols)
+        df['network'] = df['network'].astype(str)
+
+        agg = {'n_sensors': ('network', 'size')}
+        if 'ok' in df:
+            agg['n_ok'] = ('ok', 'sum')
+        for name in ['R', 'urmsd']:
+            if name in df:
+                agg[f'median_{name}'] = (name, 'median')
+        stats = df.groupby('network').agg(**agg).reset_index()
+        stats = stats.sort_values('n_sensors', ascending=False)
+
+        os.makedirs(self.run.local_root / 'latex', exist_ok=True)
+        stats.to_csv(self.run.local_root / 'latex' / 'network_stats.csv',
+                     sep=';', index=False, float_format="%.2f", na_rep='--')
+
+        records = []
+        for rec in stats.to_dict(orient='records'):
+            records.append({
+                k: (None if (isinstance(v, float) and pd.isna(v)) else
+                    (v if isinstance(v, str) else
+                     (int(v) if k.startswith('n_') else float(v))))
+                for k, v in rec.items()
+            })
+        return records
 
     def collect(self):
         nc_attrs = self.collect_content()
