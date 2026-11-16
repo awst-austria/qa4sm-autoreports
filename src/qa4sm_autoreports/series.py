@@ -245,6 +245,120 @@ class AutoReportSeries:
                         (n_epoch - 1))  # -1 because ref counts as one
         return epochs[start_idx:ref_idx + 1]
 
+    @staticmethod
+    def _epoch_label(name: str) -> str:
+        """
+        Short x-axis label for a report name. Report names are either a
+        date (e.g. "2026-02-28") or a period ("2025-12-01_to_2026-02-28");
+        in both cases the (end) month is used, e.g. "2026-02".
+        Other names are returned unchanged.
+        """
+        end = str(name).split('_to_')[-1]
+        try:
+            return pd.to_datetime(end).strftime('%Y-%m')
+        except (ValueError, TypeError):
+            return str(name)
+
+    @staticmethod
+    def _pretty_pair(metric: str) -> str:
+        """
+        "R_between_0-SMOS_L2_and_1-ERA5_LAND" -> "SMOS L2 vs. ERA5 LAND"
+        """
+        if '_between_' not in metric:
+            return metric
+        pair = metric.split('_between_', 1)[1]
+        parts = [p.split('-', 1)[-1] for p in pair.split('_and_')]
+        return " vs. ".join(p.replace('_', ' ') for p in parts)
+
+    def _load_metric(self, report, metric, run=None, tsw='bulk',
+                     p_mask_var=None, p_mask_thres=0.05,
+                     preprocess=None) -> Union[pd.Series, None]:
+        """
+        Load the (masked) metric values for a single report. The returned
+        Series is indexed by location (lat, lon[, depth]) so that values can
+        be compared at common locations between reports.
+        Returns None if the metric is not available in the report.
+        """
+        datasets = self.reports[report].open_datasets()
+        if run is not None:
+            dat = datasets.get(run, None)
+            if (dat is not None) and (metric not in dat):
+                dat = None
+        else:
+            dat = None
+            for _, d in datasets.items():
+                if metric in d:
+                    dat = d
+                    break
+
+        if dat is None:
+            return None
+
+        if 'tsw' in dat.dims:
+            dat = dat.sel(tsw=tsw)
+
+        if preprocess is not None:
+            dat = preprocess(dat)
+
+        cols = [metric]
+        if p_mask_var is not None:
+            cols.append(p_mask_var)
+
+        # Location identifiers. In situ results also have a sensor depth
+        # (multiple sensors at the same location are possible)
+        if 'lat' in dat.variables and 'lon' in dat.variables:
+            loc_vars = ['lat', 'lon']
+        elif 'latitude' in dat.variables and 'longitude' in dat.variables:
+            loc_vars = ['latitude', 'longitude']
+        else:
+            loc_vars = []
+        if 'instrument_depthfrom' in dat.variables:
+            loc_vars.append('instrument_depthfrom')
+
+        df = pd.DataFrame({c: np.asarray(dat[c].values).flatten()
+                           for c in cols + loc_vars})
+
+        if p_mask_var is not None:
+            df = df.loc[df[p_mask_var] <= p_mask_thres, :]
+
+        df = df.dropna(subset=[metric])
+
+        if len(loc_vars) > 0:
+            df[loc_vars] = df[loc_vars].round(4)
+            # In case of duplicate locations (multiple sensors), use median
+            ser = df.groupby(loc_vars)[metric].median()
+        else:
+            ser = df[metric].reset_index(drop=True)
+
+        return ser
+
+    @staticmethod
+    def _paired_difference(current: pd.Series, other: pd.Series) -> dict:
+        """
+        Compare the metric at common locations between two reports.
+        This is independent of changes in the sample (e.g. stations that
+        become (in)active, or locations masked due to frozen soils in winter).
+
+        Returns
+        -------
+        stats: dict
+            n_common: number of common locations
+            median_diff: median of (current - other) at common locations
+        """
+        res = {'n_common': 0, 'median_diff': None}
+        if (current is None) or (other is None):
+            return res
+        if not isinstance(current.index, pd.MultiIndex):
+            return res  # no location info -> can't pair
+        common = current.index.intersection(other.index)
+        res['n_common'] = int(len(common))
+        if len(common) == 0:
+            return res
+        diff = (current.loc[common] - other.loc[common]).dropna()
+        if len(diff) > 0:
+            res['median_diff'] = float(diff.median())
+        return res
+
     def track_metric(self,
                      metric,
                      ref_epoch=-1,
@@ -258,9 +372,19 @@ class AutoReportSeries:
                      p_mask_thres=0.05,
                      tsw='bulk',
                      series_tracking_stats_csv_table=True,
-                     preprocess=None):
+                     preprocess=None,
+                     min_history=3,
+                     yoy_offset=None,
+                     title=None):
         """
-        Create metric tracking data and plot
+        Create metric tracking data and plot.
+
+        The median of the metric across all locations of the reference
+        report is compared against the medians of the previous reports
+        (expected range). In addition, the metric is compared at common
+        locations against the previous report and against the report from
+        one year before (if available), which is independent of changes in
+        the spatial sample and of seasonal effects.
 
         Parameters
         ----------
@@ -305,35 +429,38 @@ class AutoReportSeries:
             Must take and return a dataset. Example::
 
                 lambda ds: ds
+        min_history: int, optional (default: 3)
+            Minimum number of previous reports (with valid results) that are
+            required to derive the expected range. With fewer reports, no
+            tracking status is assigned ("none").
+        yoy_offset: int or None, optional (default: None)
+            Number of reports between the reference report and the report
+            covering the same period one year before (e.g. 12 for monthly
+            reports), to also compare at common locations against that
+            report. None (default) skips the year-over-year comparison.
+        title: str, optional
+            Plot title. By default derived from the metric name.
         """
+        all_reports = list(self.reports.keys())
         if isinstance(ref_epoch, str):
-            ref_epoch = list(self.reports.keys()).index(ref_epoch)
+            ref_epoch = all_reports.index(ref_epoch)
+        ref_idx = ref_epoch if ref_epoch >= 0 else len(all_reports) + ref_epoch
 
-        reports = self._select_epochs(
-            list(self.reports.keys()), ref_epoch, n_epochs)
-        path_out = path_out or self.series_root / reports[-1] / "tracking"
+        reports = self._select_epochs(all_reports, ref_epoch, n_epochs)
+        path_out = Path(path_out or self.series_root / reports[-1] / "tracking")
         os.makedirs(path_out, exist_ok=True)
         fname = path_out / f"tracking_{metric}.yml"
 
         sd = Data().from_yml(fname) if os.path.isfile(fname) else Data()
 
+        load_kwargs = dict(run=run, tsw=tsw, p_mask_var=p_mask_var,
+                           p_mask_thres=p_mask_thres, preprocess=preprocess)
+
         series_stats = {}
+        values = {}
         for report in reports:
-            ds = self.reports[report].open_datasets()
-            dat = None
-            if run is not None:
-                dat = ds[run]
-            else:
-                for n, d in ds.items():
-                    if metric in d:
-                        dat = d.sel(tsw=tsw)
-                        break
-
-            if preprocess is not None:
-                dat = preprocess(dat)
-
-            if dat is None:
-                raise KeyError(f"Metric {metric} not found in any run nc.")
+            ser = self._load_metric(report, metric, **load_kwargs)
+            values[report] = ser
 
             box_stats = {
                 'q5': np.nan,
@@ -343,102 +470,378 @@ class AutoReportSeries:
                 'q95': np.nan,
                 'mean': np.nan,
                 'std': np.nan,
-                'n': np.nan
+                'n': 0
             }
 
-            ser = dat.to_pandas()
-            if p_mask_var is not None:
-                ser = ser.loc[ser[p_mask_var] <= p_mask_thres, :]
-
-            ser = ser[metric].dropna()
-
-            box_stats['n'] = len(ser.values)
-            for q in ['q5', 'q25', 'q50', 'q75', 'q95']:
-                try:
-                    quant = float(ser.quantile(float(q[1:]) / 100))
-                    box_stats[q] = quant
-                except Exception:
-                    warnings.warn(f"Quantile {q} could not be computed.")
-            try:
-                box_stats['mean'] = float(ser.mean())
-                box_stats['std'] = float(ser.std())
-            except Exception:
-                warnings.warn("Mean could not be computed.")
+            if ser is None:
+                warnings.warn(f"Metric {metric} not found in report {report}. "
+                              f"Report is treated as missing.")
+            else:
+                box_stats['n'] = int(len(ser.values))
+                if len(ser.values) > 0:
+                    for q in ['q5', 'q25', 'q50', 'q75', 'q95']:
+                        box_stats[q] = float(ser.quantile(float(q[1:]) / 100))
+                    box_stats['mean'] = float(ser.mean())
+                    box_stats['std'] = float(ser.std())
 
             series_stats[report] = box_stats
-        ##
-        sd.data['series'] = series_stats
-        sd.data['tracking'] = {'tracking_status': 'none', 'tracking_color': 'gray'}
 
-        df = pd.DataFrame.from_dict(sd.data['series'])
+        ref_report = reports[-1]
+        if values[ref_report] is None:
+            raise KeyError(f"Metric {metric} not found in any run of the "
+                           f"reference report {ref_report}.")
+
+        # ---- Expected range from previous medians -----------------------
+        meds = np.array([series_stats[r]['q50'] for r in reports])
+        current_med = meds[-1]
+        hist = meds[:-1][np.isfinite(meds[:-1])]
+
+        tracking = {
+            'tracking_status': 'none',
+            'tracking_color': 'gray',
+            'metric': metric,
+            'pretty_name': pretty_name,
+            'unit': unit,
+            'reference_report': ref_report,
+            'current_median': float(current_med) if np.isfinite(current_med) else None,
+            'current_n': int(series_stats[ref_report]['n']),
+            'n_history': int(len(hist)),
+            'min_history': int(min_history),
+            'alpha': corridor_alpha,
+            # p-value threshold for masking (None: no masking applied)
+            'p_mask_thres': p_mask_thres if p_mask_var is not None else None,
+            'expected_lower': None,
+            'expected_upper': None,
+            'previous_report': None,
+            'previous_median': None,
+            'delta_previous': None,
+        }
+
+        lower, upper = None, None
+        if (corridor_alpha is not None) and np.isfinite(current_med) \
+                and (len(hist) >= max(min_history, 2)):
+            mu, sigma = stats.norm.fit(hist)
+            if np.isfinite(mu) and np.isfinite(sigma):
+                upper = float(stats.norm.ppf(1 - corridor_alpha, loc=mu, scale=sigma))
+                lower = float(stats.norm.ppf(corridor_alpha, loc=mu, scale=sigma))
+                tracking['expected_lower'] = lower
+                tracking['expected_upper'] = upper
+                if (current_med > upper) or (current_med < lower):
+                    tracking['tracking_status'] = "not ok"
+                    tracking['tracking_color'] = "red"
+                else:
+                    tracking['tracking_status'] = "ok"
+                    tracking['tracking_color'] = "green"
+
+        # ---- Comparison against previous report ---------------------------
+        prev = [r for r in reports[:-1] if np.isfinite(series_stats[r]['q50'])]
+        if len(prev) > 0:
+            p = prev[-1]
+            tracking['previous_report'] = p
+            tracking['previous_median'] = float(series_stats[p]['q50'])
+            if np.isfinite(current_med):
+                tracking['delta_previous'] = float(current_med - series_stats[p]['q50'])
+            tracking['paired_previous'] = {
+                'report': p,
+                **self._paired_difference(values[ref_report], values[p])}
+        else:
+            tracking['paired_previous'] = {
+                'report': None,
+                **self._paired_difference(None, None)}
+
+        # ---- Comparison against the same period one year before ------------
+        yoy = {'report': None, **self._paired_difference(None, None)}
+        if (yoy_offset is not None) and (ref_idx - yoy_offset >= 0):
+            yoy_report = all_reports[ref_idx - yoy_offset]
+            if yoy_report in values:
+                yoy_ser = values[yoy_report]
+            else:
+                yoy_ser = self._load_metric(yoy_report, metric, **load_kwargs)
+            yoy = {'report': yoy_report,
+                   **self._paired_difference(values[ref_report], yoy_ser)}
+        tracking['paired_yoy'] = yoy
+
+        tracking['summary'] = self._tracking_summary(tracking)
+
+        sd.data['series'] = series_stats
+        sd.data['tracking'] = tracking
 
         if series_tracking_stats_csv_table:
             _df = pd.DataFrame.from_dict(series_stats).T
             _df["n"] = _df["n"].astype(int)
-            _df.to_csv(path_out / f"stats_{metric}.csv", sep=';', float_format="%.2f")
+            _df.index = [self._epoch_label(i) for i in _df.index]
+            _df.to_csv(path_out / f"stats_{metric}.csv", sep=';',
+                       float_format="%.2f", na_rep='--')
+
+        fig = self._plot_tracking(series_stats, tracking, n_epochs,
+                                  title=title or self._pretty_pair(metric))
+        fig.savefig(path_out / f"tracking_{metric}.png", bbox_inches='tight',
+                    dpi=200)
+        plt.close(fig)
+        sd.dump(fname, overwrite=True)
+
+        return sd
+
+    @staticmethod
+    def _fmt(v, digits=3) -> str:
+        return "--" if v is None else f"{v:.{digits}f}"
+
+    def _tracking_summary(self, t: dict) -> str:
+        """
+        Short plain-text description of the tracking result that can be
+        used directly in the report.
+        """
+        name = t['pretty_name']
+        if t['current_median'] is None:
+            return f"No valid {name} values are available for this report."
+
+        s = f"Median {self._fmt(t['current_median'])} " \
+            f"(n={t['current_n']})"
+
+        if t['tracking_status'] == 'none':
+            if t['n_history'] < t['min_history']:
+                s += (f", not classified: {t['n_history']} of "
+                      f"{t['min_history']} required previous reports "
+                      f"available")
+        else:
+            within = "within" if t['tracking_status'] == 'ok' else "OUTSIDE"
+            s += (f", {within} the expected range "
+                  f"[{self._fmt(t['expected_lower'])}, "
+                  f"{self._fmt(t['expected_upper'])}]")
+        s += "."
+
+        pp = t.get('paired_previous', {})
+        if pp.get('median_diff') is not None:
+            s += (f" Change at the {pp['n_common']} locations shared with "
+                  f"the previous report: {pp['median_diff']:+.3f}.")
+
+        yy = t.get('paired_yoy', {})
+        if yy.get('median_diff') is not None:
+            s += (f" Change at the {yy['n_common']} locations shared with "
+                  f"the report one year before: {yy['median_diff']:+.3f}.")
+        return s
+
+    def _plot_tracking(self, series_stats: dict, tracking: dict,
+                       n_epochs: int, title: str):
+        """
+        Box plot (Q5/Q25/median/Q75/Q95) per report, with the medians
+        connected and the expected median range of the reference report.
+        """
+        names = list(series_stats.keys())
+        status_color = {'ok': '#2e7d32', 'not ok': '#c62828',
+                        'none': '#757575'}[tracking['tracking_status']]
 
         bxpstats = []
-
-        names = list(df.columns.values)
-
-        if len(names) < n_epochs:
-            names = [None] * (n_epochs - len(names)) + names
-
         for name in names:
+            s = series_stats[name]
             bxpstats.append({
-                'label': name,
-                'whislo': df.loc["q5", name] if name is not None else np.nan,
-                'whishi': df.loc["q95", name] if name is not None else np.nan,
-                'med': df.loc["q50", name] if name is not None else np.nan,
-                'q1': df.loc["q25", name] if name is not None else np.nan,
-                'q3': df.loc["q75", name] if name is not None else np.nan,
-                'fliers': [],
+                'label': self._epoch_label(name),
+                'whislo': s['q5'], 'whishi': s['q95'], 'med': s['q50'],
+                'q1': s['q25'], 'q3': s['q75'], 'fliers': [],
             })
 
+        width = max(6.0, 0.45 * max(n_epochs, len(names)) + 1.5)
+        fig, ax = plt.subplots(figsize=(width, 3.0))
+        positions = np.arange(len(names)) + 1
 
-        fig, ax = plt.subplots(figsize=(int(n_epochs/2), 4))
+        bp = ax.bxp(bxpstats, positions=positions, showfliers=False,
+                    patch_artist=True, widths=0.55,
+                    medianprops=dict(color='black', linewidth=1.5))
+        for i, box in enumerate(bp['boxes']):
+            current = i == len(names) - 1
+            box.set_facecolor(status_color if current else '#cfd8dc')
+            box.set_alpha(0.6 if current else 1.0)
+            box.set_edgecolor('black')
 
-        positions = np.arange(len(names)) + 1  # 1-based positions
-        ax.bxp(bxpstats, positions=positions, showfliers=False)
+        meds = np.array([s['q50'] for s in series_stats.values()])
+        ax.plot(positions, meds, color='#37474f', lw=1, ls='-', marker='o',
+                ms=3, zorder=3, label='Median')
+
+        if tracking['expected_lower'] is not None:
+            ax.axhspan(tracking['expected_lower'], tracking['expected_upper'],
+                       color=status_color, alpha=0.15, zorder=0,
+                       label='Expected median range')
+            for v in (tracking['expected_lower'], tracking['expected_upper']):
+                ax.axhline(v, color=status_color, lw=0.8, ls='--', zorder=0)
+
+        labels = []
+        for name in names:
+            n = series_stats[name]['n']
+            labels.append(f"{self._epoch_label(name)}\nn={int(n)}"
+                          if n > 0 else f"{self._epoch_label(name)}\nno data")
         ax.set_xticks(positions)
-        ax.set_xticklabels(names, rotation=90, ha='center', fontweight="normal")
+        ax.set_xticklabels(labels, rotation=90, fontsize=8)
         ax.get_xticklabels()[-1].set_fontweight("bold")
-        ax.set_title(f"{pretty_name} tracking")
-        ax.set_ylabel(f"{pretty_name} [{unit}]")
+        ax.get_xticklabels()[-1].set_color(status_color)
+        ax.set_xlim(0.4, len(names) + 0.6)
 
-        trans = transforms.blended_transform_factory(ax.transData, ax.transAxes)
-        for pos, name in zip(positions, names):
-            if name is not None:
-                n = df.loc["n", name]
-                label = f"n={int(n)}" if np.isfinite(n) else "n=0"
+        unit = tracking['unit']
+        ylabel = tracking['pretty_name'] if unit in (None, '', '-') \
+            else f"{tracking['pretty_name']} [{unit}]"
+        ax.set_ylabel(ylabel)
+        ax.set_title(f"{tracking['pretty_name']}: {title}", fontsize=11,
+                     loc='left')
+        ax.grid(axis='y', alpha=0.3)
+        # legend above the axes (right of the title), not covering boxes
+        ax.legend(loc='lower right', bbox_to_anchor=(1.0, 1.0), ncol=2,
+                  fontsize=8, frameon=False, borderaxespad=0.2)
+        ax.spines[['top', 'right']].set_visible(False)
+
+        return fig
+
+    def _count_locations(self, report, metric, run=None, tsw='bulk'):
+        """
+        Number of locations with a valid value of the metric, and the number
+        of tested locations, in a single report. (None, None) if the metric
+        is not available in the report.
+        """
+        datasets = self.reports[report].open_datasets()
+        if run is not None:
+            candidates = [datasets[run]] if run in datasets else []
+        else:
+            candidates = list(datasets.values())
+        for dat in candidates:
+            if metric in dat:
+                if 'tsw' in dat.dims:
+                    dat = dat.sel(tsw=tsw)
+                vals = np.asarray(dat[metric].values).flatten()
+                return int(np.sum(np.isfinite(vals))), int(vals.size)
+        return None, None
+
+    def track_coverage(self,
+                       metrics,
+                       ref_epoch=-1,
+                       n_epochs=10,
+                       path_out=None,
+                       tsw='bulk',
+                       log_scale=False,
+                       name='coverage'):
+        """
+        Track the coverage, i.e. the number of locations where a metric
+        could be computed, across reports. This is informative only (no
+        expected range / tracking status).
+
+        Creates
+        - <name>.png: grouped bar plot, one bar per dataset and report
+        - <name>.yml: counts per report and dataset, and a short summary
+        - stats_<name>.csv: table of the counts (for LaTeX)
+
+        Parameters
+        ----------
+        metrics: dict[str, str]
+            Label -> metric name, e.g.
+            {'ISMN': 'urmsd_between_0-ISMN_and_1-SMOS_L2', ...}.
+            The coverage of each label is the number of locations with a
+            valid value of the metric.
+        ref_epoch: int or str, optional
+            Reference (latest) report, name or index.
+        n_epochs: int, optional
+            Number of reports to include (incl. the reference report).
+        path_out: str or Path, optional
+            Output directory. By default the tracking folder of the reference
+            report.
+        tsw: str, optional
+            Temporal sub-window to use. Default is "bulk".
+        log_scale: bool, optional (default: False)
+            Use a logarithmic y axis. Useful when the datasets have very
+            different numbers of locations (e.g. in situ vs. gridded).
+        name: str, optional
+            Base name of the output files.
+        """
+        all_reports = list(self.reports.keys())
+        if isinstance(ref_epoch, str):
+            ref_epoch = all_reports.index(ref_epoch)
+        reports = self._select_epochs(all_reports, ref_epoch, n_epochs)
+        path_out = Path(path_out or self.series_root / reports[-1] / "tracking")
+        os.makedirs(path_out, exist_ok=True)
+
+        series = {}
+        for report in reports:
+            series[report] = {}
+            for label, metric in metrics.items():
+                n_valid, n_total = self._count_locations(report, metric, tsw=tsw)
+                series[report][label] = {'n_valid': n_valid, 'n_total': n_total}
+
+        # ---- summary: change against the previous report ------------------
+        ref = reports[-1]
+        summary = {}
+        texts = []
+        for label in metrics.keys():
+            cur = series[ref][label]['n_valid']
+            prev_reports = [r for r in reports[:-1]
+                            if series[r][label]['n_valid'] is not None]
+            prev = series[prev_reports[-1]][label]['n_valid'] \
+                if len(prev_reports) > 0 else None
+            summary[label] = {
+                'current': cur,
+                'current_total': series[ref][label]['n_total'],
+                'previous': prev,
+                'previous_report': prev_reports[-1] if prev_reports else None,
+                'change': (cur - prev) if (cur is not None and prev is not None) else None,
+            }
+            if cur is None:
+                texts.append(f"{label}: no results")
+            elif prev is None:
+                texts.append(f"{label}: {cur} locations")
             else:
-                label = "n=0"
-            ax.text(pos+0.29, -0.03, label, transform=trans,
-                    ha='center', va='top', fontsize=7, rotation=90)
+                texts.append(f"{label}: {cur} locations ({cur - prev:+d})")
+        summary_text = ("Valid locations in this report (change compared to "
+                        "the previous report): " + "; ".join(texts) + ".")
 
-        meds = np.array([b['med'] for b in bxpstats])
+        data = Data()
+        data.add(series, 'series')
+        data.add({'datasets': summary, 'summary': summary_text}, 'coverage')
+        data.dump(path_out / f"{name}.yml", overwrite=True)
 
-        if corridor_alpha is not None:
-            current_med = meds[-1]
-            mu, sigma = stats.norm.fit(meds[:-1][np.isfinite(meds[:-1])])  # exclude the current one
-            if np.isnan(current_med) or np.isnan(mu) or np.isnan(sigma):
-                pass  # can't track
-            else:
-                percentile_upper = stats.norm.ppf(1-corridor_alpha, loc=mu, scale=sigma)
-                percentile_lower = stats.norm.ppf(corridor_alpha, loc=mu, scale=sigma)
-                if (current_med > percentile_upper) or (current_med < percentile_lower):
-                    sd.data['tracking']['tracking_status'] = "not ok"
-                    sd.data['tracking']['tracking_color'] = "red"
-                else:
-                    sd.data['tracking']['tracking_status'] = "ok"
-                    sd.data['tracking']['tracking_color'] = "green"
+        # ---- csv table: one row per report, one column per dataset --------
+        df = pd.DataFrame({
+            label: [series[r][label]['n_valid'] for r in reports]
+            for label in metrics.keys()},
+            index=[self._epoch_label(r) for r in reports]).astype('Int64')
+        df.to_csv(path_out / f"stats_{name}.csv", sep=';', na_rep='--')
 
-                color = "green" if sd.data['tracking']['tracking_status'] == 'ok' else "red"
-                # change color of last box label and the area accordingly
-                ax.axhspan(percentile_lower, percentile_upper, alpha=0.2,
-                           color=color, zorder=0, label=f"Expected median range")
-                ax.get_xticklabels()[-1].set_color(color)
-                ax.legend()
+        # ---- grouped bar plot ---------------------------------------------
+        labels = list(metrics.keys())
+        n = len(labels)
+        x = np.arange(len(reports))
+        width = 0.8 / n
+        colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#9467bd', '#8c564b']
+        figw = max(6.0, 0.45 * max(n_epochs, len(reports)) + 1.5)
+        fig, ax = plt.subplots(figsize=(figw, 3.2))
+        for i, label in enumerate(labels):
+            vals = np.array([series[r][label]['n_valid']
+                             if series[r][label]['n_valid'] is not None
+                             else np.nan for r in reports], dtype=float)
+            pos = x - 0.4 + width * (i + 0.5)
+            bars = ax.bar(pos, vals, width=width * 0.95, label=label,
+                          color=colors[i % len(colors)], zorder=2)
+            for b, v in zip(bars, vals):
+                if np.isfinite(v):
+                    ax.text(b.get_x() + b.get_width() / 2, v, f"{int(v)}",
+                            ha='center', va='bottom', fontsize=5.5,
+                            rotation=90)
+        ax.set_xticks(x)
+        ticklabels = [self._epoch_label(r) for r in reports]
+        ax.set_xticklabels(ticklabels, rotation=90, fontsize=8)
+        ax.get_xticklabels()[-1].set_fontweight('bold')
+        ax.set_xlim(-0.6, len(reports) - 0.4)
+        ymax = np.nanmax([series[r][l]['n_valid'] or np.nan
+                          for r in reports for l in labels] + [np.nan])
+        if log_scale:
+            ax.set_yscale('log')
+            if np.isfinite(ymax):
+                # bars start at 1, top: space for value labels
+                ax.set_ylim(bottom=1, top=ymax * 4)
+        elif np.isfinite(ymax):
+            ax.set_ylim(bottom=0, top=ymax * 1.15)  # space for value labels
+        ax.set_ylabel("Valid locations" + (" (log scale)" if log_scale else ""))
+        ax.set_title("Coverage: locations with valid results", fontsize=11,
+                     loc='left')
+        ax.grid(axis='y', alpha=0.3, zorder=0)
+        ax.legend(loc='lower right', bbox_to_anchor=(1.0, 1.0), ncol=n,
+                  fontsize=8, frameon=False, borderaxespad=0.2)
+        ax.spines[['top', 'right']].set_visible(False)
+        fig.savefig(path_out / f"{name}.png", bbox_inches='tight', dpi=200)
+        plt.close(fig)
 
-        fig.savefig(path_out / f"tracking_{metric}.png", bbox_inches='tight')
-        sd.dump(fname, overwrite=True)
+        return data
