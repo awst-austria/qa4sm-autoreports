@@ -270,6 +270,18 @@ class AutoReportSeries:
         parts = [p.split('-', 1)[-1] for p in pair.split('_and_')]
         return " vs. ".join(p.replace('_', ' ') for p in parts)
 
+    @staticmethod
+    def _select_run(datasets: dict, run: str):
+        """
+        Dataset of the run `run` in the datasets of one report. The run name
+        can be given in full or as a suffix (e.g. 'Run1'), as run names
+        often contain the report name. None if no / no unique match.
+        """
+        if run in datasets:
+            return datasets[run]
+        matches = [k for k in datasets if str(k).endswith(run)]
+        return datasets[matches[0]] if len(matches) == 1 else None
+
     def _load_metric(self, report, metric, run=None, tsw='bulk',
                      p_mask_var=None, p_mask_thres=0.05,
                      preprocess=None) -> Union[pd.Series, None]:
@@ -281,7 +293,7 @@ class AutoReportSeries:
         """
         datasets = self.reports[report].open_datasets()
         if run is not None:
-            dat = datasets.get(run, None)
+            dat = self._select_run(datasets, run)
             if (dat is not None) and (metric not in dat):
                 dat = None
         else:
@@ -367,6 +379,7 @@ class AutoReportSeries:
                      path_out=None,
                      pretty_name='ubRMSD',
                      corridor_alpha=0.05,
+                     corridor_bounds=None,
                      unit='m³m⁻³',
                      p_mask_var=None,
                      p_mask_thres=0.05,
@@ -400,9 +413,10 @@ class AutoReportSeries:
             the reference).
         run: str, optional
             If the metric should be used from a certain run (from all reports),
-            indicate the run name here. None means we search the metric in all
-            runs, and use the first one if it's contained in multiple runs
-            for a single report.
+            indicate the run name here, or the end of the run name (e.g.
+            'Run1', when the run names contain the report name). None means
+            we search the metric in all runs, and use the first one if it's
+            contained in multiple runs for a single report.
         path_out: str or path
             Where the stored files are stored. None will store all results
             in the folder of the reference epoch.
@@ -411,6 +425,15 @@ class AutoReportSeries:
         corridor_alpha: int, optional
             Percentile above/below which a median is considered outside the expected
             interval. Passing None means to not use the corridors.
+            Only used when no `corridor_bounds` are passed.
+        corridor_bounds: tuple or None, optional (default: None)
+            Predefined (lower, upper) thresholds for the expected range of
+            the median metric. Either side can be None for a one-sided
+            check, e.g. (0.5, None) to only flag medians below 0.5.
+            If passed, these are used instead of deriving the range from the
+            previous reports (`corridor_alpha` and `min_history` are then
+            ignored for the status). None (default) derives the range from
+            the medians of the previous reports.
         unit: str, optional
             Pretty unit, no brackets, e.g m³m⁻³
         p_mask_var: str, optional
@@ -507,7 +530,9 @@ class AutoReportSeries:
             'current_n': int(series_stats[ref_report]['n']),
             'n_history': int(len(hist)),
             'min_history': int(min_history),
-            'alpha': corridor_alpha,
+            'alpha': corridor_alpha if corridor_bounds is None else None,
+            # 'fixed': predefined bounds, 'history': derived from prev. reports
+            'corridor_source': 'history' if corridor_bounds is None else 'fixed',
             # p-value threshold for masking (None: no masking applied)
             'p_mask_thres': p_mask_thres if p_mask_var is not None else None,
             'expected_lower': None,
@@ -518,20 +543,36 @@ class AutoReportSeries:
         }
 
         lower, upper = None, None
-        if (corridor_alpha is not None) and np.isfinite(current_med) \
+        if corridor_bounds is not None:
+            if len(corridor_bounds) != 2:
+                raise ValueError("corridor_bounds must be a (lower, upper) "
+                                 "tuple, either side can be None.")
+            lower, upper = [None if b is None else float(b)
+                            for b in corridor_bounds]
+            if (lower is None) and (upper is None):
+                raise ValueError("At least one of the corridor_bounds "
+                                 "must not be None.")
+            if (lower is not None) and (upper is not None) and lower > upper:
+                raise ValueError(f"Lower corridor bound {lower} is larger "
+                                 f"than upper bound {upper}.")
+        elif (corridor_alpha is not None) and np.isfinite(current_med) \
                 and (len(hist) >= max(min_history, 2)):
             mu, sigma = stats.norm.fit(hist)
             if np.isfinite(mu) and np.isfinite(sigma):
                 upper = float(stats.norm.ppf(1 - corridor_alpha, loc=mu, scale=sigma))
                 lower = float(stats.norm.ppf(corridor_alpha, loc=mu, scale=sigma))
-                tracking['expected_lower'] = lower
-                tracking['expected_upper'] = upper
-                if (current_med > upper) or (current_med < lower):
-                    tracking['tracking_status'] = "not ok"
-                    tracking['tracking_color'] = "red"
-                else:
-                    tracking['tracking_status'] = "ok"
-                    tracking['tracking_color'] = "green"
+
+        if ((lower is not None) or (upper is not None)) \
+                and np.isfinite(current_med):
+            tracking['expected_lower'] = lower
+            tracking['expected_upper'] = upper
+            if ((upper is not None) and (current_med > upper)) or \
+                    ((lower is not None) and (current_med < lower)):
+                tracking['tracking_status'] = "not ok"
+                tracking['tracking_color'] = "red"
+            else:
+                tracking['tracking_status'] = "ok"
+                tracking['tracking_color'] = "green"
 
         # ---- Comparison against previous report ---------------------------
         prev = [r for r in reports[:-1] if np.isfinite(series_stats[r]['q50'])]
@@ -583,8 +624,18 @@ class AutoReportSeries:
         return sd
 
     @staticmethod
-    def _fmt(v, digits=3) -> str:
-        return "--" if v is None else f"{v:.{digits}f}"
+    def _fmt(v, digits=None, sign=False) -> str:
+        """
+        Format a number for the summary text. Without `digits`, the number
+        of decimals depends on the magnitude (metrics like R / ubRMSD: 3,
+        counts like the number of observations: 0 or 1).
+        """
+        if v is None:
+            return "--"
+        if digits is None:
+            a = abs(v)
+            digits = 0 if a >= 100 else 1 if a >= 10 else 3
+        return f"{v:{'+' if sign else ''}.{digits}f}"
 
     def _tracking_summary(self, t: dict) -> str:
         """
@@ -599,26 +650,32 @@ class AutoReportSeries:
             f"(n={t['current_n']})"
 
         if t['tracking_status'] == 'none':
-            if t['n_history'] < t['min_history']:
+            if (t.get('corridor_source', 'history') == 'history') and \
+                    (t['n_history'] < t['min_history']):
                 s += (f", not classified: {t['n_history']} of "
                       f"{t['min_history']} required previous reports "
                       f"available")
         else:
             within = "within" if t['tracking_status'] == 'ok' else "OUTSIDE"
-            s += (f", {within} the expected range "
-                  f"[{self._fmt(t['expected_lower'])}, "
-                  f"{self._fmt(t['expected_upper'])}]")
+            lo, hi = t['expected_lower'], t['expected_upper']
+            if lo is None:
+                rng = f"(≤ {self._fmt(hi)})"
+            elif hi is None:
+                rng = f"(≥ {self._fmt(lo)})"
+            else:
+                rng = f"[{self._fmt(lo)}, {self._fmt(hi)}]"
+            s += f", {within} the expected range {rng}"
         s += "."
 
         pp = t.get('paired_previous', {})
         if pp.get('median_diff') is not None:
             s += (f" Change at the {pp['n_common']} locations shared with "
-                  f"the previous report: {pp['median_diff']:+.3f}.")
+                  f"the previous report: {self._fmt(pp['median_diff'], sign=True)}.")
 
         yy = t.get('paired_yoy', {})
         if yy.get('median_diff') is not None:
             s += (f" Change at the {yy['n_common']} locations shared with "
-                  f"the report one year before: {yy['median_diff']:+.3f}.")
+                  f"the report one year before: {self._fmt(yy['median_diff'], sign=True)}.")
         return s
 
     def _plot_tracking(self, series_stats: dict, tracking: dict,
@@ -626,6 +683,9 @@ class AutoReportSeries:
         """
         Box plot (Q5/Q25/median/Q75/Q95) per report, with the medians
         connected and the expected median range of the reference report.
+        The x axis always has n_epochs slots; reports are placed from the
+        right (current report last), i.e. empty slots on the left are filled
+        by later reports.
         """
         names = list(series_stats.keys())
         status_color = {'ok': '#2e7d32', 'not ok': '#c62828',
@@ -640,9 +700,11 @@ class AutoReportSeries:
                 'q1': s['q25'], 'q3': s['q75'], 'fliers': [],
             })
 
-        width = max(6.0, 0.45 * max(n_epochs, len(names)) + 1.5)
+        n_slots = max(n_epochs, len(names))
+        offset = n_slots - len(names)  # empty slots on the left
+        width = max(6.0, 0.45 * n_slots + 1.5)
         fig, ax = plt.subplots(figsize=(width, 3.0))
-        positions = np.arange(len(names)) + 1
+        positions = np.arange(len(names)) + 1 + offset
 
         bp = ax.bxp(bxpstats, positions=positions, showfliers=False,
                     patch_artist=True, widths=0.55,
@@ -657,23 +719,31 @@ class AutoReportSeries:
         ax.plot(positions, meds, color='#37474f', lw=1, ls='-', marker='o',
                 ms=3, zorder=3, label='Median')
 
-        if tracking['expected_lower'] is not None:
-            ax.axhspan(tracking['expected_lower'], tracking['expected_upper'],
+        lo, hi = tracking['expected_lower'], tracking['expected_upper']
+        if (lo is not None) or (hi is not None):
+            # One-sided bounds: shade up to the current axis limit
+            ylim = ax.get_ylim()
+            ax.axhspan(ylim[0] if lo is None else lo,
+                       ylim[1] if hi is None else hi,
                        color=status_color, alpha=0.15, zorder=0,
                        label='Expected median range')
-            for v in (tracking['expected_lower'], tracking['expected_upper']):
-                ax.axhline(v, color=status_color, lw=0.8, ls='--', zorder=0)
+            for v in (lo, hi):
+                if v is not None:
+                    ax.axhline(v, color=status_color, lw=0.8, ls='--',
+                               zorder=0)
+            if (lo is None) or (hi is None):
+                ax.set_ylim(ylim)
 
         labels = []
         for name in names:
             n = series_stats[name]['n']
             labels.append(f"{self._epoch_label(name)}\nn={int(n)}"
                           if n > 0 else f"{self._epoch_label(name)}\nno data")
-        ax.set_xticks(positions)
-        ax.set_xticklabels(labels, rotation=90, fontsize=8)
+        ax.set_xticks(np.arange(n_slots) + 1)
+        ax.set_xticklabels([''] * offset + labels, rotation=90, fontsize=8)
         ax.get_xticklabels()[-1].set_fontweight("bold")
         ax.get_xticklabels()[-1].set_color(status_color)
-        ax.set_xlim(0.4, len(names) + 0.6)
+        ax.set_xlim(0.4, n_slots + 0.6)
 
         unit = tracking['unit']
         ylabel = tracking['pretty_name'] if unit in (None, '', '-') \
@@ -689,36 +759,60 @@ class AutoReportSeries:
 
         return fig
 
-    def _count_locations(self, report, metric, run=None, tsw='bulk'):
+    def _count_locations(self, report, status_var, good_status=0,
+                         run=None, tsw='bulk'):
         """
-        Number of locations with a valid value of the metric, and the number
-        of tested locations, in a single report. (None, None) if the metric
-        is not available in the report.
+        Number of locations where the status variable indicates a good
+        result (status == good_status), and the number of tested locations,
+        in a single report. (None, None) if the status variable is not
+        available in the report.
         """
         datasets = self.reports[report].open_datasets()
         if run is not None:
-            candidates = [datasets[run]] if run in datasets else []
+            dat = self._select_run(datasets, run)
+            candidates = [] if dat is None else [dat]
         else:
             candidates = list(datasets.values())
         for dat in candidates:
-            if metric in dat:
+            if status_var in dat:
                 if 'tsw' in dat.dims:
                     dat = dat.sel(tsw=tsw)
-                vals = np.asarray(dat[metric].values).flatten()
-                return int(np.sum(np.isfinite(vals))), int(vals.size)
+                vals = np.asarray(dat[status_var].values).flatten()
+                return int(np.sum(vals == good_status)), int(vals.size)
         return None, None
 
-    def track_coverage(self,
-                       metrics,
-                       ref_epoch=-1,
-                       n_epochs=10,
-                       path_out=None,
-                       tsw='bulk',
-                       log_scale=False,
-                       name='coverage'):
+    def _label_status_vars(self, status_vars) -> dict:
         """
-        Track the coverage, i.e. the number of locations where a metric
-        could be computed, across reports. This is informative only (no
+        Normalise the status variables passed to track_spatial_coverage to
+        an (ordered) dict of unique label -> status variable.
+        """
+        if isinstance(status_vars, dict):
+            items = list(status_vars.items())
+        else:
+            items = [(self._pretty_pair(v), v) if isinstance(v, str)
+                     else tuple(v) for v in status_vars]
+        labelled = {}
+        for label, var in items:
+            if label in labelled:
+                raise ValueError(
+                    f"Duplicate coverage label '{label}' (for {var} and "
+                    f"{labelled[label]}). Labels must be unique.")
+            labelled[label] = var
+        return labelled
+
+    def track_spatial_coverage(self,
+                               status_vars,
+                               ref_epoch=-1,
+                               n_epochs=10,
+                               path_out=None,
+                               tsw='bulk',
+                               good_status=0,
+                               log_scale=False,
+                               name='coverage'):
+        """
+        Track the spatial coverage, i.e. the number of locations where the
+        validation was successful (status variable == good_status, 0 means
+        GOOD in QA4SM), across reports. This is informative only (no
         expected range / tracking status).
 
         Creates
@@ -728,11 +822,19 @@ class AutoReportSeries:
 
         Parameters
         ----------
-        metrics: dict[str, str]
-            Label -> metric name, e.g.
-            {'ISMN': 'urmsd_between_0-ISMN_and_1-SMOS_L2', ...}.
-            The coverage of each label is the number of locations with a
-            valid value of the metric.
+        status_vars: list or dict[str, str]
+            Status variables in the validation results, one bar each. The
+            coverage of each bar is the number of locations where the status
+            variable equals `good_status`. Either
+            - a list of status variable names, labels are derived from the
+              dataset pair, e.g.
+              ['status_between_0-ERA5_LAND_and_1-C3S_combined',
+               'status_between_0-ERA5_LAND_and_2-C3S_active']
+              -> 'ERA5 LAND vs. C3S combined', 'ERA5 LAND vs. C3S active'
+            - a list of (label, status variable) tuples
+            - a dict label -> status variable name (labels must be unique,
+              use one of the list options to use the same reference
+              dataset for multiple bars).
         ref_epoch: int or str, optional
             Reference (latest) report, name or index.
         n_epochs: int, optional
@@ -742,6 +844,8 @@ class AutoReportSeries:
             report.
         tsw: str, optional
             Temporal sub-window to use. Default is "bulk".
+        good_status: int, optional (default: 0)
+            Status value that marks a successful (GOOD) validation result.
         log_scale: bool, optional (default: False)
             Use a logarithmic y axis. Useful when the datasets have very
             different numbers of locations (e.g. in situ vs. gridded).
@@ -755,18 +859,21 @@ class AutoReportSeries:
         path_out = Path(path_out or self.series_root / reports[-1] / "tracking")
         os.makedirs(path_out, exist_ok=True)
 
+        status_vars = self._label_status_vars(status_vars)
+
         series = {}
         for report in reports:
             series[report] = {}
-            for label, metric in metrics.items():
-                n_valid, n_total = self._count_locations(report, metric, tsw=tsw)
+            for label, status_var in status_vars.items():
+                n_valid, n_total = self._count_locations(
+                    report, status_var, good_status=good_status, tsw=tsw)
                 series[report][label] = {'n_valid': n_valid, 'n_total': n_total}
 
         # ---- summary: change against the previous report ------------------
         ref = reports[-1]
         summary = {}
         texts = []
-        for label in metrics.keys():
+        for label in status_vars.keys():
             cur = series[ref][label]['n_valid']
             prev_reports = [r for r in reports[:-1]
                             if series[r][label]['n_valid'] is not None]
@@ -785,8 +892,8 @@ class AutoReportSeries:
                 texts.append(f"{label}: {cur} locations")
             else:
                 texts.append(f"{label}: {cur} locations ({cur - prev:+d})")
-        summary_text = ("Valid locations in this report (change compared to "
-                        "the previous report): " + "; ".join(texts) + ".")
+        summary_text = ("Locations with GOOD validation status in this "
+                        "report (change compared to the previous report): " + "; ".join(texts) + ".")
 
         data = Data()
         data.add(series, 'series')
@@ -796,14 +903,17 @@ class AutoReportSeries:
         # ---- csv table: one row per report, one column per dataset --------
         df = pd.DataFrame({
             label: [series[r][label]['n_valid'] for r in reports]
-            for label in metrics.keys()},
+            for label in status_vars.keys()},
             index=[self._epoch_label(r) for r in reports]).astype('Int64')
         df.to_csv(path_out / f"stats_{name}.csv", sep=';', na_rep='--')
 
         # ---- grouped bar plot ---------------------------------------------
-        labels = list(metrics.keys())
+        labels = list(status_vars.keys())
         n = len(labels)
-        x = np.arange(len(reports))
+        # n_epochs slots, reports placed from the right (as in track_metric)
+        n_slots = max(n_epochs, len(reports))
+        offset = n_slots - len(reports)
+        x = np.arange(len(reports)) + offset
         width = 0.8 / n
         colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#9467bd', '#8c564b']
         figw = max(6.0, 0.45 * max(n_epochs, len(reports)) + 1.5)
@@ -820,11 +930,11 @@ class AutoReportSeries:
                     ax.text(b.get_x() + b.get_width() / 2, v, f"{int(v)}",
                             ha='center', va='bottom', fontsize=5.5,
                             rotation=90)
-        ax.set_xticks(x)
-        ticklabels = [self._epoch_label(r) for r in reports]
+        ax.set_xticks(np.arange(n_slots))
+        ticklabels = [''] * offset + [self._epoch_label(r) for r in reports]
         ax.set_xticklabels(ticklabels, rotation=90, fontsize=8)
         ax.get_xticklabels()[-1].set_fontweight('bold')
-        ax.set_xlim(-0.6, len(reports) - 0.4)
+        ax.set_xlim(-0.6, n_slots - 0.4)
         ymax = np.nanmax([series[r][l]['n_valid'] or np.nan
                           for r in reports for l in labels] + [np.nan])
         if log_scale:
@@ -834,11 +944,13 @@ class AutoReportSeries:
                 ax.set_ylim(bottom=1, top=ymax * 4)
         elif np.isfinite(ymax):
             ax.set_ylim(bottom=0, top=ymax * 1.15)  # space for value labels
-        ax.set_ylabel("Valid locations" + (" (log scale)" if log_scale else ""))
-        ax.set_title("Coverage: locations with valid results", fontsize=11,
-                     loc='left')
+        ax.set_ylabel("GOOD locations" + (" (log scale)" if log_scale else ""))
+        # legend in its own row between the axes and the title (long
+        # dataset labels would otherwise overlap the title)
+        ax.set_title("Spatial coverage: locations with GOOD status",
+                     fontsize=11, loc='left', pad=20)
         ax.grid(axis='y', alpha=0.3, zorder=0)
-        ax.legend(loc='lower right', bbox_to_anchor=(1.0, 1.0), ncol=n,
+        ax.legend(loc='lower left', bbox_to_anchor=(0.0, 1.0), ncol=n,
                   fontsize=8, frameon=False, borderaxespad=0.2)
         ax.spines[['top', 'right']].set_visible(False)
         fig.savefig(path_out / f"{name}.png", bbox_inches='tight', dpi=200)

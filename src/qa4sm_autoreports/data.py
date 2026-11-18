@@ -196,7 +196,8 @@ class SummaryStatsData(RunData):
         self.unit_sep = "  in"
         super().__init__(validation_run)
 
-    def _load_sum_stats(self, drop_unit=False) -> pd.DataFrame:
+    def _load_sum_stats(self, drop_unit=False,
+                        keep_dataset=False) -> pd.DataFrame:
         df = pd.read_csv(
             self.run.local_root / 'summary_stats.csv', index_col=0)
         # get rid of unit from table:
@@ -208,7 +209,7 @@ class SummaryStatsData(RunData):
 
         df.index = [i.strip() for i in df.index]
 
-        if "Dataset" in df.columns:
+        if ("Dataset" in df.columns) and not keep_dataset:
             df = df.drop(columns="Dataset")
         if "Spearman's ρ" in df.index:
             df = df.rename(index={"Spearman's ρ": "Spearman's rho"})
@@ -233,16 +234,21 @@ class SummaryStatsData(RunData):
         """
         Collect all relevant stats from the downloaded summary table
         """
-        df = self._load_sum_stats(drop_unit=True)
+        df = self._load_sum_stats(drop_unit=True, keep_dataset=True)
+        datasets = df.pop("Dataset") if "Dataset" in df.columns else None
+        # Runs with multiple candidate datasets have one row per metric and
+        # dataset. Then the dataset is added to the variable name, e.g.
+        # MEAN_PEARSON'S R_1-C3S_COMBINED (version in brackets removed).
+        duplicated = df.index.duplicated(keep=False)
 
         params = {}
 
-        for i in df.index.values:
+        for n, i in enumerate(df.index.values):
+            name = i.split(self.unit_sep)[0]
+            if duplicated[n] and (datasets is not None):
+                name += "_" + str(datasets.iloc[n]).split('(')[0].strip()
             for c in df.columns.values:
-                if self.unit_sep in i:
-                    i = i.split(self.unit_sep)[0]
-                val = df.loc[i, c]
-                params[f"{c.upper()}_{i.upper()}"] = float(val)
+                params[f"{c.upper()}_{name.upper()}"] = float(df.iloc[n][c])
 
         self.add(params, "SummaryVars")
 
@@ -291,6 +297,25 @@ class NetcdfData(RunData):
         if 'network' in ds.variables:
             data['networks'] = self._network_stats(ds)
 
+        # The same per dataset pair, e.g. '0-ISMN_and_1-C3S_combined', for
+        # runs with multiple candidate datasets
+        pairs = {}
+        for var in list(ds.variables.keys()):
+            if not var.startswith("status_between_"):
+                continue
+            pair = var[len("status_between_"):]
+            vals = ds[var].values.flatten()
+            n, ok = int(len(vals)), int(np.sum(vals == status_code_ok))
+            pairs[pair] = {
+                'n_status': n,
+                'n_ok': ok,
+                'n_failed': n - ok,
+                'percent_ok': int((ok / n) * 100) if n > 0 else 0,
+            }
+            if 'network' in ds.variables:
+                pairs[pair]['networks'] = self._network_stats(ds, pair)
+        data['pairs'] = pairs
+
         return data
 
     @staticmethod
@@ -301,22 +326,37 @@ class NetcdfData(RunData):
                 return str(var)
         return None
 
-    def _network_stats(self, ds: xr.Dataset) -> list:
+    def _network_stats(self, ds: xr.Dataset, pair=None) -> list:
         """
         Per-network summary for in situ (ISMN) validation runs: number of
         sensors, successful validations and median R / ubRMSD.
         The table is also exported to latex/network_stats.csv
+
+        Parameters
+        ----------
+        ds: xr.Dataset
+            Validation results
+        pair: str, optional
+            Dataset pair, e.g. '0-ISMN_and_1-C3S_combined', to use the
+            results of. By default the first pair in the results is used.
+            The table is then exported to latex/network_stats_<pair>.csv
         """
         if 'tsw' in ds.dims:
             # one value per sensor: use the bulk (full period) results
             ds = ds.sel(tsw='bulk') if 'bulk' in ds['tsw'].values \
                 else ds.isel(tsw=0)
-        status_var = self._first_var(ds, 'status_')
+        def find(prefix):
+            if pair is None:
+                return self._first_var(ds, prefix)
+            var = f"{prefix}{pair}"
+            return var if var in ds.variables else None
+
+        status_var = find('status_between_')
         cols = {'network': ds['network'].values}
         if status_var is not None:
             cols['ok'] = ds[status_var].values.flatten() == 0
         for name, prefix in [('R', 'R_between_'), ('urmsd', 'urmsd_between_')]:
-            var = self._first_var(ds, prefix)
+            var = find(prefix)
             if var is not None:
                 cols[name] = ds[var].values.flatten()
         df = pd.DataFrame(cols)
@@ -332,7 +372,9 @@ class NetcdfData(RunData):
         stats = stats.sort_values('n_sensors', ascending=False)
 
         os.makedirs(self.run.local_root / 'latex', exist_ok=True)
-        stats.to_csv(self.run.local_root / 'latex' / 'network_stats.csv',
+        fname = 'network_stats.csv' if pair is None \
+            else f'network_stats_{pair}.csv'
+        stats.to_csv(self.run.local_root / 'latex' / fname,
                      sep=';', index=False, float_format="%.2f", na_rep='--')
 
         records = []
