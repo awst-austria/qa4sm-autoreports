@@ -194,8 +194,11 @@ class ValidationRun:
     def extent(self) -> (float, float, float, float):
         # y_min, x_min, y_max, x_max
         d = self.config.data
-        extent = GeographicExtent.from_corners(d['min_lat'], d['min_lon'],
-                                               d['max_lat'], d['max_lon'])
+        extent = GeographicExtent.from_corners(
+            d['min_lat'] if d['min_lat'] is not None else -90,
+            d['min_lon'] if d['min_lon'] is not None else -180,
+            d['max_lat'] if d['max_lat'] is not None else 90,
+            d['max_lon'] if d['max_lon'] is not None else 180)
         return extent
 
     @property
@@ -448,3 +451,8 @@ class ValidationRun:
                 shutil.rmtree(self.local_root)
         if remote:
             self.connection.delete(self.remote_id)
+
+if __name__ == '__main__':
+
+
+    run.download_data()

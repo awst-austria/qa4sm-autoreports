@@ -105,22 +105,45 @@ class TestSeriesExistingLocal(unittest.TestCase):
         assert img.size[0] > 0
         assert img.size[1] > 0
 
-    def test_track_coverage(self):
+    def test_track_spatial_coverage(self):
         out_path = Path(self.tempdir)
-        metric = 'urmsd_between_0-ISMN_and_1-C3S_combined'
-        self.series.track_coverage(metrics={'ISMN': metric, 'missing': 'R_not_there'},
-                                   ref_epoch=-1, n_epochs=10, path_out=out_path)
+        status = 'status_between_0-ISMN_and_1-C3S_combined'
+        self.series.track_spatial_coverage(
+            status_vars={'ISMN': status, 'missing': 'status_not_there'},
+            ref_epoch=-1, n_epochs=10, path_out=out_path)
         assert os.path.isfile(out_path / "coverage.png")
         assert os.path.isfile(out_path / "stats_coverage.csv")
         data = Data().from_yml(out_path / "coverage.yml")
         cur = data.data['coverage']['datasets']['ISMN']
-        assert cur['current'] > 0
-        assert cur['current'] <= cur['current_total']
+        # test data: 1 of 25 locations with status 0 (GOOD)
+        assert cur['current'] == 1
+        assert cur['current_total'] == 25
         assert cur['previous_report'] == 'epoch1'
         assert cur['change'] == cur['current'] - cur['previous']
         # metric that does not exist in any report
         assert data.data['coverage']['datasets']['missing']['current'] is None
         assert isinstance(data.data['coverage']['summary'], str)
+
+    def test_track_spatial_coverage_same_reference(self):
+        out_path = Path(self.tempdir)
+        status = 'status_between_0-ISMN_and_1-C3S_combined'
+        other = 'status_between_0-ISMN_and_2-C3S_active'  # not in test data
+        data = self.series.track_spatial_coverage(
+            status_vars=[status, other], path_out=out_path)
+        cov = data.data['coverage']['datasets']
+        assert list(cov.keys()) == ['ISMN vs. C3S combined',
+                                    'ISMN vs. C3S active']
+        assert cov['ISMN vs. C3S combined']['current'] == 1
+        assert cov['ISMN vs. C3S active']['current'] is None
+
+        data = self.series.track_spatial_coverage(
+            status_vars=[('ISMN', status), ('ISMN 2', status)],
+            path_out=out_path)
+        assert len(data.data['coverage']['datasets']) == 2
+        with self.assertRaises(ValueError):
+            self.series.track_spatial_coverage(
+                status_vars=[('ISMN', status), ('ISMN', other)],
+                path_out=out_path)
 
     def test_select_epochs(self):
         epochs = ['epoch1', 'epoch2', 'epoch3', 'epoch4', 'epoch5']
@@ -184,18 +207,45 @@ class TestTrackMetricSynthetic(unittest.TestCase):
         series.reports = {n: _FakeReport(d) for n, d in zip(names, datasets)}
         return series
 
-    def _track(self, series):
+    def _track(self, series, **kwargs):
         with self.assertWarns(UserWarning):  # missing report
+            kwargs = {'n_epochs': 6, 'min_history': 3, 'yoy_offset': 4,
+                      'path_out': self.tempdir, **kwargs}
             sd = series.track_metric(self.metric, pretty_name='R', unit='-',
-                                     n_epochs=6, min_history=3, yoy_offset=4,
-                                     path_out=self.tempdir)
+                                     **kwargs)
         return sd.data
+
+    def test_track_metric_fixed_bounds(self):
+        # value within history range, but below the predefined threshold
+        data = self._track(self._series(np.full(10, 0.5)),
+                           corridor_bounds=(0.6, 0.9))
+        t = data['tracking']
+        assert t['corridor_source'] == 'fixed'
+        assert t['expected_lower'] == 0.6
+        assert t['expected_upper'] == 0.9
+        assert t['tracking_status'] == 'not ok'
+        assert 'OUTSIDE the expected range [0.600, 0.900]' in t['summary']
+
+        # one-sided bound, history is ignored (min_history not reached)
+        data = self._track(self._series(np.full(10, 0.2)),
+                           corridor_bounds=(0.1, None), min_history=100)
+        t = data['tracking']
+        assert t['tracking_status'] == 'ok'
+        assert t['expected_upper'] is None
+        assert 'within the expected range (≥ 0.100)' in t['summary']
+        assert os.path.isfile(self.tempdir / f"tracking_{self.metric}.png")
+
+        with self.assertRaises(ValueError):
+            self._series(np.full(10, 0.5)).track_metric(
+                self.metric, path_out=self.tempdir,
+                corridor_bounds=(None, None))
 
     def test_track_metric_classification(self):
         # current report as before -> ok
         data = self._track(self._series(np.full(10, 0.5)))
         t = data['tracking']
         assert t['tracking_status'] == 'ok'
+        assert t['corridor_source'] == 'history'
         assert t['n_history'] == 4
         assert t['expected_lower'] < 0.5 < t['expected_upper']
         assert data['series']['2026-05-01']['n'] == 0
