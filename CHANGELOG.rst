@@ -6,12 +6,9 @@ Unreleased
 ==========
 -
 
-v0.2.2
+v0.3.0
 ======
 - Updated for C3S active, passive, combined reports with ISMN
-
-v0.2.1
-======
 - Updated for SMOS reports that use SMAP and reference
 
 v0.2
